@@ -1,0 +1,36 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "个人智能理财系统鸿蒙客户端 - 胡宪棋 软件2413 202421332084"
+    },
+    {
+      "name": "app_name",
+      "value": "智能理财"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "个人智能理财系统主入口"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "智能理财"
+    },
+    {
+      "name": "internet_permission_reason",
+      "value": "用于连接后端服务进行数据同步"
+    },
+    {
+      "name": "camera_permission_reason",
+      "value": "用于拍摄消费小票照片"
+    },
+    {
+      "name": "media_permission_reason",
+      "value": "用于选择和保存账单相关图片文件"
+    },
+    {
+      "name": "network_info_permission_reason",
+      "value": "用于检测网络状态以支持离线记账和自动同步"
+    }
+  ]
+}

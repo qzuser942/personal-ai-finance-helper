@@ -1,0 +1,14 @@
+{
+  "src": [
+    "pages/auth/LoginPage",
+    "pages/auth/RegisterPage",
+    "pages/index/MainPage",
+    "pages/index/IndexPage",
+    "pages/bill/BillListPage",
+    "pages/bill/BillDetailPage",
+    "pages/statistics/StatisticsPage",
+    "pages/budget/BudgetPage",
+    "pages/ai/AiAnalysisPage",
+    "pages/settings/SettingsPage"
+  ]
+}

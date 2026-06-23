@@ -1,0 +1,9 @@
+{
+  "name": "entry",
+  "version": "1.0.0",
+  "description": "个人智能理财系统鸿蒙客户端入口模块",
+  "main": "",
+  "author": "胡宪棋 软件2413 202421332084",
+  "license": "ISC",
+  "dependencies": {}
+}
