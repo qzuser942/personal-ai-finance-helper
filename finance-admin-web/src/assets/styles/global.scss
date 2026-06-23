@@ -1,0 +1,199 @@
+/**
+ * 全局样式 - 浅色系+毛玻璃+粒子动画
+ * @author 胡宪棋 软件2413 202421332084
+ */
+@use './variables.scss' as *;
+
+/* 毛玻璃卡片 */
+.glass-card {
+  background: $glass-bg;
+  backdrop-filter: $glass-blur;
+  -webkit-backdrop-filter: $glass-blur;
+  border: $glass-border;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-sm;
+  transition: all 0.3s ease;
+  &:hover {
+    box-shadow: $shadow-md;
+    transform: translateY(-2px);
+  }
+}
+
+/* 渐变色按钮 */
+.gradient-btn {
+  background: linear-gradient(135deg, $primary 0%, $primary-light 100%);
+  color: #fff;
+  border: none;
+  border-radius: $radius-sm;
+  transition: all 0.3s ease;
+  &:hover {
+    box-shadow: 0 4px 15px rgba(108, 92, 231, 0.4);
+    transform: translateY(-1px);
+  }
+}
+
+/* 统计卡片 */
+.stat-card {
+  background: linear-gradient(135deg, rgba(108, 92, 231, 0.06) 0%, rgba(0, 206, 201, 0.04) 100%);
+  border: 1px solid rgba(108, 92, 231, 0.1);
+  border-radius: $radius-md;
+  padding: $spacing-lg;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s;
+  &::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle, rgba(108, 92, 231, 0.1) 0%, transparent 70%);
+  }
+  &:hover {
+    box-shadow: $shadow-md;
+    transform: translateY(-2px);
+  }
+  .stat-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: $primary;
+    margin: 8px 0;
+  }
+  .stat-label {
+    font-size: 13px;
+    color: $text-secondary;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+}
+
+/* 页面标题 */
+.page-header {
+  padding: $spacing-lg;
+  background: $bg-card;
+  border-radius: $radius-md;
+  margin-bottom: $spacing-lg;
+  box-shadow: $shadow-sm;
+  .page-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: $text-primary;
+    &::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 20px;
+      background: linear-gradient(180deg, $primary, $accent);
+      border-radius: 2px;
+      margin-right: 12px;
+      vertical-align: middle;
+    }
+  }
+}
+
+/* 粒子动画背景 */
+.particles-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+  .particle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: $primary-light;
+    border-radius: 50%;
+    opacity: 0.3;
+    animation: float-up 8s infinite ease-in;
+    &:nth-child(odd) { animation-duration: 12s; }
+    &:nth-child(3n) { animation-delay: 2s; background: $accent-light; }
+    &:nth-child(5n) { animation-delay: 4s; width: 3px; height: 3px; }
+  }
+}
+
+@keyframes float-up {
+  0% { transform: translateY(100vh) scale(0); opacity: 0; }
+  10% { opacity: 0.3; }
+  90% { opacity: 0.15; }
+  100% { transform: translateY(-10vh) scale(1.5); opacity: 0; }
+}
+
+/* 毛玻璃流光边框 */
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.shimmer-border {
+  position: relative;
+  &::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    background: linear-gradient(90deg, transparent, $primary-light, $accent-light, transparent);
+    background-size: 200% 100%;
+    animation: shimmer 3s linear infinite;
+    z-index: -1;
+    opacity: 0.5;
+  }
+}
+
+/* 暗黑模式覆盖 */
+.dark {
+  .glass-card, .stat-card, .page-header {
+    background: $dark-card;
+    border-color: $dark-border;
+    color: $dark-text;
+    .page-title, .stat-label, .stat-value {
+      color: $dark-text;
+    }
+  }
+  .el-card { background: $dark-card; border-color: $dark-border; color: $dark-text; }
+  .el-table { --el-table-bg-color: #{$dark-card}; --el-table-tr-bg-color: #{$dark-card}; --el-table-text-color: #{$dark-text}; }
+}
+
+/* 全局布局 */
+.main-content {
+  min-height: calc(100vh - 60px);
+  padding: 24px;
+  background: $bg-light;
+  position: relative;
+}
+
+.dark .main-content {
+  background: $dark-bg;
+}
+
+/* 表格美化 */
+.el-table {
+  border-radius: $radius-md;
+  overflow: hidden;
+  .el-table__header th {
+    background: rgba(108, 92, 231, 0.04) !important;
+    font-weight: 600;
+    color: $text-primary;
+  }
+}
+
+/* 搜索区美化 */
+.search-bar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 16px;
+  background: $bg-card;
+  border-radius: $radius-md;
+  margin-bottom: 16px;
+  box-shadow: $shadow-sm;
+}
+
+.dark .search-bar {
+  background: $dark-card;
+}
