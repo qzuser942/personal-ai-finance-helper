@@ -40,6 +40,9 @@ public enum ErrorCode {
     AI_NO_BILL_DATA(40001, "该月份无账单数据，无法分析"),
     AI_SERVICE_ERROR(40002, "AI服务调用失败，请稍后重试"),
     AI_PARSE_ERROR(40003, "AI返回结果解析失败，请重试"),
+    AI_VECTOR_STORE_ERROR(40004, "向量数据库服务异常，请检查Qdrant服务状态"),
+    AI_EMBEDDING_ERROR(40005, "特征向量生成失败，请检查阿里云百炼API配置"),
+    AI_CONFIG_INVALID(40006, "AI配置参数无效，请检查application.yml配置"),
 
     // ==================== 文件 5xxxx ====================
     FILE_TYPE_NOT_ALLOWED(50001, "文件类型不允许，仅支持 jpg/png/webp"),

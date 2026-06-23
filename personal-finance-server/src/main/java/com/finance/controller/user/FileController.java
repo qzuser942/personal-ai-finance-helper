@@ -51,7 +51,7 @@ public class FileController {
             data.put("fileName", newFileName);
             data.put("filePath", filePath);
             data.put("fileUrl", filePath);
-            data.put("fileSize", file.length());
+            data.put("fileSize", file.getSize());
             log.info("小票图片上传成功: {}", newFileName);
             return Result.ok("上传成功", data);
         } catch (Exception e) {

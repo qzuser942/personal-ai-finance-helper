@@ -71,55 +71,88 @@ public class DataInitializer implements CommandLineRunner {
 
     private void initAiConfig() {
         Long count = aiConfigMapper.selectCount(
-                new LambdaQueryWrapper<com.finance.entity.AiConfig>().eq(
-                        com.finance.entity.AiConfig::getConfigKey, "model_name"));
+                new LambdaQueryWrapper<AiConfig>().eq(
+                        AiConfig::getConfigKey, "deepseek_api_key"));
         if (count > 0) {
             log.info("AI配置已存在，跳过初始化");
             return;
         }
 
-        // Prompt模板 - 分析
-        insertAiConfig("prompt_template_analysis",
-                "你是一名专业的个人理财顾问，具备丰富的消费行为分析和财务规划经验。\n" +
-                "请基于以下用户的月度账单数据，进行全面的财务分析。\n\n" +
-                "{markdown_bill_data}\n\n" +
-                "请严格按照以下四个维度进行分析，并以JSON格式返回分析结果：\n\n" +
-                "1. **冗余消费项**：识别不必要的、可削减的消费项目（最多列出5项）\n" +
-                "2. **不良消费习惯**：分析消费行为中存在的问题模式（如冲动消费、外卖依赖等）\n" +
-                "3. **个性化省钱方案**：基于用户消费画像，提出具体可行的省钱建议（至少3条）\n" +
-                "4. **月度财务复盘**：对当月财务状况进行综合评价，给出改进方向（200-300字）\n\n" +
-                "返回的JSON格式必须严格遵循以下结构：\n" +
-                "{\n" +
-                "  \"redundantItems\": [\n" +
-                "    {\"name\": \"项目名称\", \"amount\": 金额, \"reason\": \"冗余原因\", \"suggestion\": \"改进建议\"}\n" +
-                "  ],\n" +
-                "  \"badHabits\": [\n" +
-                "    {\"habit\": \"习惯名称\", \"description\": \"具体描述\", \"impact\": \"财务影响评估\"}\n" +
-                "  ],\n" +
-                "  \"savingPlans\": [\n" +
-                "    {\"plan\": \"方案名称\", \"description\": \"具体做法\", \"estimatedSave\": \"预估节省金额/月\"}\n" +
-                "  ],\n" +
-                "  \"monthlyReview\": \"月度财务复盘文案...\"\n" +
-                "}",
-                "TEXT", "AI月度账单分析Prompt模板，{markdown_bill_data}为账单数据占位符");
+        // === DeepSeek大模型配置 ===
+        insertAiConfig("deepseek_api_key",
+                "${DEEPSEEK_API_KEY:sk-your-deepseek-api-key}",
+                "STRING", "DeepSeek官方API密钥（通过环境变量DEEPSEEK_API_KEY配置）");
+        insertAiConfig("deepseek_base_url",
+                "https://api.deepseek.com/v1",
+                "STRING", "DeepSeek官方API地址（OpenAI兼容接口）");
+        insertAiConfig("model_name",
+                "deepseek-chat",
+                "STRING", "大模型名称：deepseek-chat / deepseek-reasoner");
+        insertAiConfig("model_temperature",
+                "0.7",
+                "NUMBER", "模型temperature参数（0-2），控制输出随机性");
+        insertAiConfig("model_max_tokens",
+                "4096",
+                "NUMBER", "模型max_tokens参数，最大输出长度");
+        insertAiConfig("model_top_p",
+                "0.9",
+                "NUMBER", "模型top_p核采样参数");
 
-        // Prompt模板 - 分类
+        // === 阿里云百炼嵌入配置 ===
+        insertAiConfig("dashscope_api_key",
+                "${DASHSCOPE_API_KEY:sk-your-dashscope-api-key}",
+                "STRING", "阿里云百炼DashScope API密钥（通过环境变量DASHSCOPE_API_KEY配置）");
+        insertAiConfig("embedding_model",
+                "text-embedding-v2",
+                "STRING", "阿里云百炼文本嵌入模型名称");
+        insertAiConfig("embedding_dimension",
+                "1536",
+                "NUMBER", "向量维度（text-embedding-v2 = 1536）");
+
+        // === Qdrant向量数据库配置 ===
+        insertAiConfig("qdrant_host",
+                "localhost",
+                "STRING", "Qdrant向量数据库服务地址");
+        insertAiConfig("qdrant_port",
+                "6334",
+                "NUMBER", "Qdrant gRPC通信端口");
+        insertAiConfig("qdrant_collection",
+                "user_consumption_vectors",
+                "STRING", "Qdrant向量集合名称");
+
+        // === Prompt模板 ===
+        insertAiConfig("prompt_template_analysis",
+                "你是一名专业的个人理财顾问，持有CFP认证。\n" +
+                "请基于以下用户月度账单数据进行全面的财务诊断分析。\n\n" +
+                "{{markdown_bill_data}}\n\n" +
+                "请严格按以下JSON格式返回（不要包含```json```代码块）：\n" +
+                "{\n" +
+                "  \"overview\": {\"totalIncome\": 0, \"totalExpense\": 0, \"balance\": 0, " +
+                "\"healthScore\": 0, \"summary\": \"\"},\n" +
+                "  \"wasteItems\": [{\"name\": \"\", \"amount\": 0, \"category\": \"\", " +
+                "\"reason\": \"\", \"suggestion\": \"\", \"severity\": \"MEDIUM\"}],\n" +
+                "  \"badHabits\": [{\"habit\": \"\", \"description\": \"\", \"impact\": \"\", \"severity\": \"MEDIUM\"}],\n" +
+                "  \"suggestions\": [{\"plan\": \"\", \"description\": \"\", \"estimatedMonthlySave\": \"\", " +
+                "\"difficulty\": \"MODERATE\"}],\n" +
+                "  \"nextMonthPlan\": {\"totalBudget\": 0, \"categoryAllocations\": {}, \"tips\": []}\n" +
+                "}",
+                "TEXT", "AI月度账单分析Prompt模板，{{markdown_bill_data}}为账单数据占位符");
+
         insertAiConfig("prompt_template_classify",
-                "你是一个消费分类助手。请根据以下消费备注文字，判断它最可能属于哪个消费分类。\n\n" +
-                "可用分类列表：{category_list}\n\n" +
-                "消费备注：\"{remark_text}\"\n\n" +
-                "请返回JSON格式：\n" +
-                "{\n  \"categoryName\": \"推荐的分类名称\",\n  \"confidence\": 0.95,\n  \"reason\": \"判断依据简述\"\n}",
+                "你是一个智能消费分类助手。根据消费备注自动匹配最合适的分类。\n\n" +
+                "{{markdown_classify_data}}\n\n" +
+                "返回JSON格式（Top3备选）：\n" +
+                "{\"categoryName\": \"\", \"confidence\": 0.0, \"reason\": \"\", " +
+                "\"top3Alternatives\": [{\"categoryName\": \"\", \"confidence\": 0.0}]}",
                 "TEXT", "AI消费分类推荐Prompt模板");
 
-        // 模型参数
-        insertAiConfig("model_name", "deepseek-chat", "STRING", "大模型名称");
-        insertAiConfig("model_temperature", "0.7", "NUMBER", "模型temperature参数");
-        insertAiConfig("model_max_tokens", "2048", "NUMBER", "模型max_tokens参数");
-        insertAiConfig("model_top_p", "0.9", "NUMBER", "模型top_p参数");
-        insertAiConfig("model_base_url", "http://localhost:11434", "STRING", "DeepSeek大模型API地址");
+        insertAiConfig("prompt_template_feature_extraction",
+                "从以下AI诊断报告中提取用户消费行为特征。\n" +
+                "{{diagnosis_summary}}\n\n" +
+                "返回2-3句简洁的特征描述文本（50-100字）。",
+                "TEXT", "AI消费特征提取Prompt模板（用于Qdrant向量存储）");
 
-        log.info("AI默认配置初始化完成");
+        log.info("AI默认配置初始化完成（共{}条配置）", 14);
     }
 
     private void insertAiConfig(String key, String value, String type, String desc) {

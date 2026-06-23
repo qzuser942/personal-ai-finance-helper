@@ -1,5 +1,6 @@
 package com.finance.exception;
 
+import com.finance.ai.exception.AiServiceException;
 import com.finance.utils.Result;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +31,17 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.OK)
     public Result<Void> handleBusinessException(BusinessException e, HttpServletRequest request) {
         log.warn("[业务异常] {} - {}: {}", request.getRequestURI(), e.getCode(), e.getMessage());
+        return Result.fail(e.getCode(), e.getMessage());
+    }
+
+    /**
+     * AI服务异常
+     */
+    @ExceptionHandler(AiServiceException.class)
+    @ResponseStatus(HttpStatus.OK)
+    public Result<Void> handleAiServiceException(AiServiceException e, HttpServletRequest request) {
+        String retryHint = e.isRetryable() ? "（可重试）" : "";
+        log.warn("[AI异常] {} - {}: {} {}", request.getRequestURI(), e.getCode(), e.getMessage(), retryHint);
         return Result.fail(e.getCode(), e.getMessage());
     }
 

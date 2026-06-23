@@ -25,6 +25,8 @@
         <langchain4j.version>0.35.0</langchain4j.version>
         <poi.version>5.2.5</poi.version>
         <druid.version>1.2.23</druid.version>
+        <qdrant-client.version>1.10.0</qdrant-client.version>
+        <resilience4j.version>2.2.0</resilience4j.version>
     </properties>
 
     <dependencies>
@@ -32,6 +34,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- Spring Security Crypto (BCrypt) -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-crypto</artifactId>
         </dependency>
 
         <!-- SpringBoot Validation -->
@@ -93,7 +101,7 @@
             <version>${knife4j.version}</version>
         </dependency>
 
-        <!-- LangChain4j -->
+        <!-- LangChain4j Core & OpenAI (DeepSeek兼容) -->
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j</artifactId>
@@ -103,6 +111,32 @@
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-open-ai</artifactId>
             <version>${langchain4j.version}</version>
+        </dependency>
+
+        <!-- LangChain4j Qdrant Vector Store -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-qdrant</artifactId>
+            <version>${langchain4j.version}</version>
+        </dependency>
+
+        <!-- Qdrant Java Client (集合管理、Schema操作；gRPC依赖由其传递引入) -->
+        <dependency>
+            <groupId>io.qdrant</groupId>
+            <artifactId>client</artifactId>
+            <version>${qdrant-client.version}</version>
+        </dependency>
+
+        <!-- Resilience4j Retry (LLM调用重试机制) -->
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-retry</artifactId>
+            <version>${resilience4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-spring-boot3</artifactId>
+            <version>${resilience4j.version}</version>
         </dependency>
 
         <!-- Apache POI for Excel -->
