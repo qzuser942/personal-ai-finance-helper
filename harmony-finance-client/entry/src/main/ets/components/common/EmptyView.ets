@@ -9,14 +9,14 @@ export struct EmptyView {
 
   build() {
     Column() {
-      Image($r('sys.media.ohos_ic_public_notes'))
+      Image($r('sys.media.ohos_ic_public_sound'))
         .width(this.iconSize)
         .height(this.iconSize)
         .opacity(0.3)
 
       Text(this.message)
         .fontSize(14)
-        .fontColor('#999999')
+        .fontColor($r('app.color.text_hint'))
         .margin({ top: 12 })
     }
     .width('100%')

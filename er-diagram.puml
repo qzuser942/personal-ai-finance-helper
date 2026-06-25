@@ -1,0 +1,313 @@
+@startuml 个人理财助手数据库ER图
+' ============================================================
+' = 个人理财助手应用系统 — 数据库实体关系图（PlantUML）
+' = 版本：V2.0 | 日期：2026-06-25
+' = 编制人：胡宪棋 | 学号：202421332084 | 班级：软件2413
+' = 数据库名：finance_db | 字符集：utf8mb4 | 引擎：InnoDB
+' = 基于：init.sql v2.0（含 admin_operation_log 新增 admin_role + resource_id）
+' ============================================================
+
+title "个人理财助手数据库ER图（DB-PFM-2026-001）\n数据库：finance_db | 字符集：utf8mb4_unicode_ci | 引擎：InnoDB"
+
+skinparam backgroundColor #FEFEFE
+skinparam linetype ortho
+skinparam entity {
+  BackgroundColor #E8F0FE
+  BorderColor #1A73E8
+  FontName Microsoft YaHei
+  FontSize 12
+}
+
+' ============================================================
+' 【用户认证模块】- 2张表
+' ============================================================
+
+entity "sys_user\n<<普通用户表>>" as sys_user #FFF0E6 {
+  +  id : BIGINT <<PK>> <<AUTO_INCREMENT>>
+  --
+  **username** : VARCHAR(64) <<UK>> <<NOT NULL>>
+  password : VARCHAR(255) <<NOT NULL>>
+  **status** : TINYINT <<NOT NULL>> <<DEFAULT 1>>
+  last_login_time : DATETIME
+  is_deleted : TINYINT <<NOT NULL>> <<DEFAULT 0>> <<@TableLogic>>
+  created_at : DATETIME <<NOT NULL>> <<DEFAULT NOW()>>
+  updated_at : DATETIME <<ON UPDATE>>
+  --
+  <<索引>> uk_username (UNIQUE)
+  <<索引>> idx_status, idx_is_deleted, idx_created_at
+  == 说明 ==
+  账号状态: 1=正常, 0=冻结
+  密码: BCrypt加密
+  外键: 无（被其他表引用）
+}
+
+entity "sys_admin\n<<管理员表>>" as sys_admin #FFF0E6 {
+  +  id : BIGINT <<PK>> <<AUTO_INCREMENT>>
+  --
+  **username** : VARCHAR(64) <<UK>> <<NOT NULL>>
+  password : VARCHAR(255) <<NOT NULL>>
+  **role** : VARCHAR(32) <<NOT NULL>> <<DEFAULT 'OPERATOR'>>
+  last_login_time : DATETIME
+  is_deleted : TINYINT <<NOT NULL>> <<DEFAULT 0>> <<@TableLogic>>
+  created_at : DATETIME <<NOT NULL>> <<DEFAULT NOW()>>
+  updated_at : DATETIME <<ON UPDATE>>
+  --
+  <<索引>> uk_admin_username (UNIQUE)
+  <<索引>> idx_role, idx_is_deleted
+  == 说明 ==
+  角色: SUPER_ADMIN / OPERATOR
+  与普通用户物理分表
+  外键: 无
+}
+
+' ============================================================
+' 【账单业务模块】- 2张表
+' ============================================================
+
+entity "category\n<<消费分类表>>" as category #E6F5E6 {
+  +  id : BIGINT <<PK>> <<AUTO_INCREMENT>>
+  --
+  **user_id** : BIGINT <<NOT NULL>> <<DEFAULT 0>>
+  **name** : VARCHAR(64) <<NOT NULL>>
+  icon : VARCHAR(128)
+  **type** : VARCHAR(16) <<NOT NULL>>
+  **sort_order** : INT <<NOT NULL>> <<DEFAULT 0>>
+  is_deleted : TINYINT <<NOT NULL>> <<DEFAULT 0>> <<@TableLogic>>
+  created_at : DATETIME <<NOT NULL>> <<DEFAULT NOW()>>
+  updated_at : DATETIME <<ON UPDATE>>
+  --
+  <<UK>> uk_user_name_type (user_id, name, type)
+  <<索引>> idx_user_id, idx_type, idx_is_deleted
+  == 说明 ==
+  user_id=0: 系统内置（全局可见）
+  user_id>0: 用户自定义（仅该用户可见）
+  type: income / expense
+}
+
+entity "bill\n<<账单表>>" as bill #E6F5E6 {
+  +  id : BIGINT <<PK>> <<AUTO_INCREMENT>>
+  --
+  **user_id** : BIGINT <<NOT NULL>> <<FK→sys_user.id>>
+  **amount** : DECIMAL(12,2) <<NOT NULL>>
+  **type** : VARCHAR(16) <<NOT NULL>>
+  **category_id** : BIGINT <<NOT NULL>> <<FK→category.id>>
+  remark : VARCHAR(500)
+  receipt_image : VARCHAR(500)
+  sync_uuid : VARCHAR(36) <<UK>>
+  **consume_time** : DATETIME <<NOT NULL>>
+  is_deleted : TINYINT <<NOT NULL>> <<DEFAULT 0>> <<@TableLogic>>
+  created_at : DATETIME <<NOT NULL>> <<DEFAULT NOW()>>
+  updated_at : DATETIME <<ON UPDATE>>
+  --
+  <<UK>> uk_sync_uuid (UNIQUE) - 离线同步去重
+  <<外键>> fk_bill_user (user_id → sys_user.id) ON DELETE CASCADE
+  <<外键>> fk_bill_category (category_id → category.id) ON DELETE RESTRICT
+  <<索引>> idx_user_id, idx_category_id, idx_type
+  <<索引>> idx_consume_time
+  <<索引>> idx_user_consume (user_id, consume_time)
+  <<索引>> idx_user_type_time (user_id, type, consume_time)
+  <<索引>> idx_is_deleted
+}
+
+' ============================================================
+' 【预算目标模块】- 2张表
+' ============================================================
+
+entity "budget\n<<月度预算表>>" as budget #E1F5FE {
+  +  id : BIGINT <<PK>> <<AUTO_INCREMENT>>
+  --
+  **user_id** : BIGINT <<NOT NULL>> <<FK→sys_user.id>>
+  **yearmonth** : VARCHAR(7) <<NOT NULL>>
+  **total_budget** : DECIMAL(12,2) <<NOT NULL>> <<DEFAULT 0.00>>
+  category_budgets : JSON
+  is_deleted : TINYINT <<NOT NULL>> <<DEFAULT 0>> <<@TableLogic>>
+  created_at : DATETIME <<NOT NULL>> <<DEFAULT NOW()>>
+  updated_at : DATETIME <<ON UPDATE>>
+  --
+  <<UK>> uk_user_yearmonth (user_id, yearmonth)
+  <<外键>> fk_budget_user (user_id → sys_user.id) ON DELETE CASCADE
+  <<索引>> idx_is_deleted
+  == JSON示例 ==
+  {"1": 3000.00, "2": 800.00, "3": 1500.00}
+}
+
+entity "save_target\n<<存钱目标表>>" as save_target #E1F5FE {
+  +  id : BIGINT <<PK>> <<AUTO_INCREMENT>>
+  --
+  **user_id** : BIGINT <<NOT NULL>> <<FK→sys_user.id>>
+  **name** : VARCHAR(128) <<NOT NULL>>
+  **target_amount** : DECIMAL(12,2) <<NOT NULL>>
+  **saved_amount** : DECIMAL(12,2) <<NOT NULL>> <<DEFAULT 0.00>>
+  **status** : TINYINT <<NOT NULL>> <<DEFAULT 0>>
+  completed_at : DATETIME
+  is_deleted : TINYINT <<NOT NULL>> <<DEFAULT 0>> <<@TableLogic>>
+  created_at : DATETIME <<NOT NULL>> <<DEFAULT NOW()>>
+  updated_at : DATETIME <<ON UPDATE>>
+  --
+  <<外键>> fk_target_user (user_id → sys_user.id) ON DELETE CASCADE
+  <<索引>> idx_user_id, idx_status, idx_is_deleted
+  <<索引>> idx_user_status (user_id, status)
+  == 说明 ==
+  status: 0=进行中, 1=已完成
+  saved_amount≥target_amount时自动完成
+}
+
+' ============================================================
+' 【AI分析模块】- 2张表
+' ============================================================
+
+entity "ai_analysis_record\n<<AI分析记录表>>" as ai_analysis_record #F3E8FF {
+  +  id : BIGINT <<PK>> <<AUTO_INCREMENT>>
+  --
+  **user_id** : BIGINT <<NOT NULL>> <<FK→sys_user.id>>
+  **yearmonth** : VARCHAR(7) <<NOT NULL>>
+  **result_json** : MEDIUMTEXT <<NOT NULL>>
+  prompt_template_snapshot : TEXT
+  **model_name** : VARCHAR(64) <<NOT NULL>> <<DEFAULT 'DeepSeek'>>
+  processing_time_ms : BIGINT
+  is_deleted : TINYINT <<NOT NULL>> <<DEFAULT 0>> <<@TableLogic>>
+  created_at : DATETIME <<NOT NULL>> <<DEFAULT NOW()>>
+  updated_at : DATETIME <<ON UPDATE>>
+  --
+  <<外键>> fk_analysis_user (user_id → sys_user.id) ON DELETE CASCADE
+  <<索引>> idx_user_id, idx_yearmonth, idx_is_deleted
+  <<索引>> idx_user_month (user_id, yearmonth)
+  == result_json结构 ==
+  { overview, wasteItems[],
+    badHabits[], suggestions[],
+    nextMonthPlan }
+}
+
+entity "ai_config\n<<AI配置表>>" as ai_config #F3E8FF {
+  +  id : BIGINT <<PK>> <<AUTO_INCREMENT>>
+  --
+  **config_key** : VARCHAR(128) <<UK>> <<NOT NULL>>
+  **config_value** : TEXT <<NOT NULL>>
+  **config_type** : VARCHAR(32) <<NOT NULL>> <<DEFAULT 'STRING'>>
+  description : VARCHAR(256)
+  is_deleted : TINYINT <<NOT NULL>> <<DEFAULT 0>> <<@TableLogic>>
+  created_at : DATETIME <<NOT NULL>> <<DEFAULT NOW()>>
+  updated_at : DATETIME <<ON UPDATE>>
+  --
+  <<UK>> uk_config_key (UNIQUE)
+  <<索引>> idx_is_deleted
+  == 预设配置键 ==
+  deepseek_api_key / model_base_url
+  model_name / model_temperature
+  model_max_tokens / model_top_p
+  dashscope_api_key / embedding_model
+  embedding_dimension / qdrant_host
+  qdrant_port / qdrant_collection
+  prompt_template_analysis
+  prompt_template_chat
+  prompt_template_export
+}
+
+' ============================================================
+' 【审计运维模块】- 2张表
+' ============================================================
+
+entity "admin_operation_log\n<<管理员操作日志表>>" as admin_operation_log #FCE4EC {
+  +  id : BIGINT <<PK>> <<AUTO_INCREMENT>>
+  --
+  **admin_id** : BIGINT <<NOT NULL>>
+  **admin_username** : VARCHAR(64) <<NOT NULL>>
+  admin_role : VARCHAR(32) <<DEFAULT NULL>>
+  **operation** : VARCHAR(128) <<NOT NULL>>
+  **method** : VARCHAR(16) <<NOT NULL>>
+  **request_url** : VARCHAR(255) <<NOT NULL>>
+  resource_id : VARCHAR(64) <<DEFAULT NULL>>
+  request_params : TEXT
+  ip_address : VARCHAR(64)
+  **status** : TINYINT <<NOT NULL>> <<DEFAULT 1>>
+  error_msg : VARCHAR(1000)
+  is_deleted : TINYINT <<NOT NULL>> <<DEFAULT 0>> <<@TableLogic>>
+  created_at : DATETIME <<NOT NULL>> <<DEFAULT NOW()>>
+  updated_at : DATETIME <<ON UPDATE>>
+  --
+  <<索引>> idx_admin_id, idx_created_at
+  <<索引>> idx_operation
+  <<索引>> idx_admin_time (admin_id, created_at)
+  <<索引>> idx_is_deleted
+  == 说明 ==
+  只追加表，无外键约束
+  AOP自动采集，管理员无感知
+  admin_role: SUPER_ADMIN / OPERATOR
+  resource_id: 如 userId:123、billId:456
+  method: POST/PUT/DELETE
+  status: 1=成功, 0=失败
+}
+
+entity "database_backup_log\n<<数据库备份日志表>>" as database_backup_log #FCE4EC {
+  +  id : BIGINT <<PK>> <<AUTO_INCREMENT>>
+  --
+  **admin_id** : BIGINT <<NOT NULL>>
+  **file_name** : VARCHAR(255) <<NOT NULL>>
+  **file_path** : VARCHAR(500) <<NOT NULL>>
+  file_size : BIGINT
+  **status** : TINYINT <<NOT NULL>> <<DEFAULT 1>>
+  error_msg : VARCHAR(1000)
+  is_deleted : TINYINT <<NOT NULL>> <<DEFAULT 0>> <<@TableLogic>>
+  created_at : DATETIME <<NOT NULL>> <<DEFAULT NOW()>>
+  updated_at : DATETIME <<ON UPDATE>>
+  --
+  <<索引>> idx_admin_id, idx_created_at
+  <<索引>> idx_is_deleted
+  == 说明 ==
+  只追加表，无外键约束
+  文件名示例: backup_20260623_143000.sql
+}
+
+' ============================================================
+' 表间关联关系
+' ============================================================
+
+' ---------- 用户端关联（sys_user → 业务表）----------
+sys_user ||--o{ bill                  : "1:N\nFK: user_id\nON DELETE CASCADE"
+sys_user ||--o{ category              : "1:N\nFK: user_id\n(仅自定义分类)"
+sys_user ||--o{ budget                : "1:N\nFK: user_id\nON DELETE CASCADE"
+sys_user ||--o{ save_target           : "1:N\nFK: user_id\nON DELETE CASCADE"
+sys_user ||--o{ ai_analysis_record    : "1:N\nFK: user_id\nON DELETE CASCADE"
+
+' ---------- 分类与账单关联 ----------
+category ||--o{ bill                  : "1:N\nFK: category_id\nON DELETE RESTRICT"
+
+' ---------- 管理员端关联（sys_admin → 审计/运维表）----------
+sys_admin ||--o{ admin_operation_log  : "1:N\n逻辑关联: admin_id\n(无外键约束)"
+sys_admin ||--o{ database_backup_log  : "1:N\n逻辑关联: admin_id\n(无外键约束)"
+
+' ============================================================
+' 图例说明
+' ============================================================
+note right of sys_user
+  <b>符号约定：</b>
+  + = 主键字段
+  <b>粗体</b> = NOT NULL 必填字段
+  <<PK>> = 主键约束
+  <<UK>> = 唯一约束
+  <<FK>> = 外键关联
+  ||--o{ = 一对多关系
+  <<@TableLogic>> = 逻辑删除
+  <<AUTO_INCREMENT>> = 自增主键
+end note
+
+note bottom of ai_config
+  <b>ai_config — 独立配置表说明</b>
+  1. 无外键关联，使用 key-value 模式
+  2. 支持管理员在线热更新，即时生效
+  3. 存储DeepSeek/百炼/Qdrant及Prompt模板
+  4. DataInitializer 启动时自动初始化15条预设配置
+  5. 部署时需根据实际API KEY修改配置值
+end note
+
+note bottom of bill
+  <b>bill — 核心账单表说明</b>
+  1. 金额统一 DECIMAL(12,2) 保障财务精度
+  2. sync_uuid UNIQUE KEY 支持离线同步去重
+  3. MySQL允许多个NULL值在UNIQUE列中
+  4. 联合索引 (user_id, type, consume_time)
+     覆盖最高频的筛选查询
+  5. 外键: 用户级联删除，分类禁止删除
+end note
+
+@enduml

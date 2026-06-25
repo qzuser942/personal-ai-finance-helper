@@ -56,9 +56,12 @@ export struct BarChart {
 
   private drawBarChart(): void {
     const ctx = this.context;
-    const padding = { top: 20, right: 10, bottom: 30, left: 40 };
-    const chartW = this.canvasWidth - padding.left - padding.right;
-    const chartH = this.canvasHeight - padding.top - padding.bottom;
+    const padTop = 20;
+    const padRight = 10;
+    const padBottom = 30;
+    const padLeft = 40;
+    const chartW = this.canvasWidth - padLeft - padRight;
+    const chartH = this.canvasHeight - padTop - padBottom;
 
     // 找最大值
     let maxVal = 0;
@@ -76,32 +79,32 @@ export struct BarChart {
     ctx.strokeStyle = '#EEEEEE';
     ctx.lineWidth = 0.5;
     for (let i = 0; i <= 4; i++) {
-      const y = padding.top + (chartH / 4) * i;
+      const y = padTop + (chartH / 4) * i;
       ctx.beginPath();
-      ctx.moveTo(padding.left, y);
-      ctx.lineTo(this.canvasWidth - padding.right, y);
+      ctx.moveTo(padLeft, y);
+      ctx.lineTo(this.canvasWidth - padRight, y);
       ctx.stroke();
 
       // Y轴数值
       ctx.fillStyle = '#999999';
       ctx.font = '10px sans-serif';
       ctx.textAlign = 'right';
-      ctx.fillText((maxVal * (1 - i / 4)).toFixed(0), padding.left - 5, y + 4);
+      ctx.fillText((maxVal * (1 - i / 4)).toFixed(0), padLeft - 5, y + 4);
     }
 
     // 柱状图
     this.data.forEach((d, index) => {
-      const centerX = padding.left + gap * (index + 0.5);
+      const centerX = padLeft + gap * (index + 0.5);
 
       // 收入柱（绿色）
       const incomeH = (d.income / maxVal) * chartH;
       ctx.fillStyle = '#4CAF50';
-      ctx.fillRect(centerX - barWidth, padding.top + chartH - incomeH, barWidth, incomeH);
+      ctx.fillRect(centerX - barWidth, padTop + chartH - incomeH, barWidth, incomeH);
 
       // 支出柱（红色）
       const expenseH = (d.expense / maxVal) * chartH;
       ctx.fillStyle = '#FF6B6B';
-      ctx.fillRect(centerX + 1, padding.top + chartH - expenseH, barWidth, expenseH);
+      ctx.fillRect(centerX + 1, padTop + chartH - expenseH, barWidth, expenseH);
 
       // X轴标签（每隔几个显示）
       if (index % Math.ceil(this.data.length / 10) === 0) {

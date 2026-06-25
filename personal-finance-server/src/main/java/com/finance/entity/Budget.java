@@ -22,6 +22,7 @@ public class Budget {
     private Long userId;
 
     /** 预算月份 YYYY-MM */
+    @TableField("yearmonth")
     private String yearMonth;
 
     /** 月度总预算 */

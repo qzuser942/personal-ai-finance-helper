@@ -14,12 +14,14 @@ import com.finance.ai.prompt.FinancePromptTemplates;
 import com.finance.ai.vector.ConsumptionVectorStore;
 import com.finance.entity.AiAnalysisRecord;
 import com.finance.entity.Category;
+import com.finance.entity.SysUser;
 import com.finance.exception.BusinessException;
 import com.finance.exception.ErrorCode;
 import com.finance.mapper.BillMapper;
 import com.finance.service.AiAnalysisRecordService;
 import com.finance.service.AiService;
 import com.finance.service.CategoryService;
+import com.finance.service.SysUserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -51,6 +53,7 @@ public class AiServiceImpl implements AiService {
     private final BillMapper billMapper;
     private final AiAnalysisRecordService aiAnalysisRecordService;
     private final CategoryService categoryService;
+    private final SysUserService sysUserService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // ==================== 新注入的AI组件 ====================
@@ -128,7 +131,8 @@ public class AiServiceImpl implements AiService {
         if (consumptionVectorStore.isAvailable()) {
             try {
                 Map<String, Object> reportMap = objectMapper.convertValue(report,
-                        new TypeReference<Map<String, Object>>() {});
+                        new TypeReference<Map<String, Object>>() {
+                        });
                 consumptionVectorStore.storeFeaturesFromReport(userId, reportMap, yearMonth);
                 log.debug("用户{}的消费特征已存入向量记忆库", userId);
             } catch (Exception e) {
@@ -228,7 +232,8 @@ public class AiServiceImpl implements AiService {
                 if (report.getOverview() != null && report.getOverview().getSummary() != null) {
                     String summary = report.getOverview().getSummary();
                     m.put("resultPreview", summary.length() > 100
-                            ? summary.substring(0, 100) + "..." : summary);
+                            ? summary.substring(0, 100) + "..."
+                            : summary);
                 } else {
                     m.put("resultPreview", "无预览");
                 }
@@ -236,7 +241,8 @@ public class AiServiceImpl implements AiService {
                 m.put("resultPreview", "解析失败");
             }
             m.put("createdAt", r.getCreatedAt() != null
-                    ? r.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : null);
+                    ? r.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+                    : null);
             return m;
         }).collect(Collectors.toList());
 
@@ -245,8 +251,7 @@ public class AiServiceImpl implements AiService {
                 "total", pageResult.getTotal(),
                 "page", pageResult.getCurrent(),
                 "size", pageResult.getSize(),
-                "totalPages", pageResult.getPages()
-        );
+                "totalPages", pageResult.getPages());
     }
 
     @Override
@@ -257,12 +262,14 @@ public class AiServiceImpl implements AiService {
         }
         try {
             Map<String, Object> result = objectMapper.readValue(record.getResultJson(),
-                    new TypeReference<Map<String, Object>>() {});
+                    new TypeReference<Map<String, Object>>() {
+                    });
             result.put("recordId", record.getId());
             result.put("yearMonth", record.getYearMonth());
             result.put("processingTimeMs", record.getProcessingTimeMs());
             result.put("createdAt", record.getCreatedAt() != null
-                    ? record.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : null);
+                    ? record.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+                    : null);
             return result;
         } catch (Exception e) {
             throw new BusinessException(ErrorCode.AI_PARSE_ERROR);
@@ -272,25 +279,55 @@ public class AiServiceImpl implements AiService {
     // ==================== 管理员功能 ====================
 
     @Override
-    public Map<String, Object> adminGetRecords(Integer page, Integer size, String username, String yearMonth) {
+    public Map<String, Object> adminGetRecords(Integer page, Integer size, String username, String startDate,
+            String endDate) {
         LambdaQueryWrapper<AiAnalysisRecord> wrapper = new LambdaQueryWrapper<>();
-        if (yearMonth != null && !yearMonth.isEmpty()) {
-            wrapper.eq(AiAnalysisRecord::getYearMonth, yearMonth);
+        // 时间范围查询
+        if (startDate != null && !startDate.isEmpty()) {
+            wrapper.ge(AiAnalysisRecord::getCreatedAt, startDate + " 00:00:00");
+        }
+        if (endDate != null && !endDate.isEmpty()) {
+            wrapper.le(AiAnalysisRecord::getCreatedAt, endDate + " 23:59:59");
+        }
+        // 用户名模糊查询
+        if (username != null && !username.isEmpty()) {
+            List<Long> userIds = sysUserService.lambdaQuery()
+                    .like(SysUser::getUsername, username)
+                    .list()
+                    .stream()
+                    .map(SysUser::getId)
+                    .collect(Collectors.toList());
+            if (userIds.isEmpty()) {
+                return Map.of("records", List.of(), "total", 0L);
+            }
+            wrapper.in(AiAnalysisRecord::getUserId, userIds);
         }
         wrapper.orderByDesc(AiAnalysisRecord::getCreatedAt);
 
         IPage<AiAnalysisRecord> pageResult = aiAnalysisRecordService.page(
                 new Page<>(page != null ? page : 1, size != null ? size : 20), wrapper);
 
+        // 收集所有userId，批量查询username
+        Set<Long> userIds = pageResult.getRecords().stream()
+                .map(AiAnalysisRecord::getUserId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, String> userMap = new HashMap<>();
+        if (!userIds.isEmpty()) {
+            sysUserService.listByIds(userIds).forEach(u -> userMap.put(u.getId(), u.getUsername()));
+        }
+
         List<Map<String, Object>> records = pageResult.getRecords().stream().map(r -> {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id", r.getId());
             m.put("userId", r.getUserId());
+            m.put("username", userMap.getOrDefault(r.getUserId(), "未知用户"));
             m.put("yearMonth", r.getYearMonth());
             m.put("modelName", r.getModelName());
             m.put("processingTimeMs", r.getProcessingTimeMs());
             m.put("createdAt", r.getCreatedAt() != null
-                    ? r.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : null);
+                    ? r.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+                    : null);
             return m;
         }).collect(Collectors.toList());
 
@@ -299,8 +336,7 @@ public class AiServiceImpl implements AiService {
                 "total", pageResult.getTotal(),
                 "page", pageResult.getCurrent(),
                 "size", pageResult.getSize(),
-                "totalPages", pageResult.getPages()
-        );
+                "totalPages", pageResult.getPages());
     }
 
     @Override
@@ -311,13 +347,17 @@ public class AiServiceImpl implements AiService {
         }
         try {
             Map<String, Object> result = objectMapper.readValue(record.getResultJson(),
-                    new TypeReference<Map<String, Object>>() {});
+                    new TypeReference<Map<String, Object>>() {
+                    });
             result.put("recordId", record.getId());
             result.put("userId", record.getUserId());
+            SysUser user = sysUserService.getById(record.getUserId());
+            result.put("username", user != null ? user.getUsername() : "未知用户");
             result.put("yearMonth", record.getYearMonth());
             result.put("processingTimeMs", record.getProcessingTimeMs());
             result.put("createdAt", record.getCreatedAt() != null
-                    ? record.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : null);
+                    ? record.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+                    : null);
             return result;
         } catch (Exception e) {
             throw new BusinessException(ErrorCode.AI_PARSE_ERROR);
@@ -387,13 +427,13 @@ public class AiServiceImpl implements AiService {
             List<com.finance.entity.Bill> bills = billMapper.selectList(
                     new LambdaQueryWrapper<com.finance.entity.Bill>()
                             .eq(com.finance.entity.Bill::getUserId, userId)
-                            .apply("DATE_FORMAT(consume_time, '%Y-%m-%d') = {0}", date)
-            );
+                            .apply("DATE_FORMAT(consume_time, '%Y-%m-%d') = {0}", date));
 
             return bills.stream().map(b -> {
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("consumeTime", b.getConsumeTime() != null
-                        ? b.getConsumeTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) : date);
+                        ? b.getConsumeTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+                        : date);
                 m.put("amount", b.getAmount());
                 m.put("categoryName", getCategoryName(b.getCategoryId()));
                 m.put("remark", b.getRemark() != null ? b.getRemark() : "");
@@ -409,7 +449,8 @@ public class AiServiceImpl implements AiService {
     private final Map<Long, String> categoryNameCache = new HashMap<>();
 
     private String getCategoryName(Long categoryId) {
-        if (categoryId == null) return "未分类";
+        if (categoryId == null)
+            return "未分类";
         return categoryNameCache.computeIfAbsent(categoryId, id -> {
             Category cat = categoryService.getById(id);
             return cat != null ? cat.getName() : "未分类";

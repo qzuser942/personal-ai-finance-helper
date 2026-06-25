@@ -4,6 +4,12 @@
  */
 import { get, post, put, del } from './request'
 
+// ===== 当前管理员信息 =====
+/** 获取当前登录管理员信息（每次进入后台/路由切换时调用，确保角色最新） GET /api/admin/info */
+export function getAdminInfo() {
+  return get('/api/admin/info')
+}
+
 // ===== 管理员账号管理 =====
 /** 管理员列表 GET /api/admin/account/page */
 export function getAdminPage(params) {
@@ -15,9 +21,14 @@ export function addAdmin(data) {
   return post('/api/admin/account', data)
 }
 
-/** 修改管理员 PUT /api/admin/account/{id} */
-export function updateAdmin(id, data) {
-  return put(`/api/admin/account/${id}`, data)
+/** 修改管理员角色 PUT /api/admin/account/{id}/role */
+export function updateAdminRole(id, data) {
+  return put(`/api/admin/account/${id}/role`, data)
+}
+
+/** 修改管理员密码 PUT /api/admin/account/{id}/password */
+export function updateAdminPassword(id, data) {
+  return put(`/api/admin/account/${id}/password`, data)
 }
 
 /** 删除管理员 DELETE /api/admin/account/{id} */

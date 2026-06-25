@@ -1,6 +1,7 @@
 package com.finance.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -40,6 +41,7 @@ public class Bill {
     private String syncUuid;
 
     /** 消费时间 */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime consumeTime;
 
     /** 逻辑删除 */

@@ -1,12 +1,61 @@
-/node_modules
-/oh_modules
-/local.properties
-/.idea
-**/build
-/.hvigor
+# ==================== Java后端编译产物 ====================
+personal-finance-server/target/
+*.class
+*.jar
+*.war
+personal-finance-server/logs/
+*.log
+
+# ==================== Maven / IDE ====================
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+
+# ==================== Node.js 前端依赖 ====================
+node_modules/
+**/node_modules/
+
+# ==================== Vue管理后台 ====================
+finance-admin-web/dist/
+finance-admin-web/.vite/
+finance-admin-web/.env.local
+finance-admin-web/.env.*.local
+
+# ==================== 鸿蒙客户端 ====================
+**/build/
+.hvigor/
+**/.hvigor/
+oh_modules/
+**/oh_modules/
 .cxx
-/.clangd
-/.clang-format
-/.clang-tidy
+.clangd
+.clang-format
+.clang-tidy
 **/.test
-/.appanalyzer
+.appanalyzer
+**/.ohpm/
+
+# ==================== 系统临时文件 ====================
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# ==================== 本地环境密钥/配置 ====================
+.env
+*.env.local
+local.properties
+**/local.properties
+
+# ==================== 数据库备份 ====================
+personal-finance-server/backups/
+
+# ==================== IDE / 编辑器 ====================
+.vscode/
+*.code-workspace
+**/.codebuddy/
+**/.feisuan/
+**/.trae/

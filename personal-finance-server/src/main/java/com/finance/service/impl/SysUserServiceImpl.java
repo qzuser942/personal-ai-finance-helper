@@ -13,8 +13,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Slf4j
 @Service
@@ -127,12 +127,25 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         if (user == null) {
             throw new BusinessException(ErrorCode.TARGET_USER_NOT_FOUND);
         }
-        // 生成8位随机密码
-        String newPassword = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        // 关键修复：使用 SecureRandom 生成 12 位字母+数字密码，强度从 8 位 UUID 截断提升到 12 位 62 字符集
+        String newPassword = generateStrongPassword(12);
         user.setPassword(passwordEncoder.encode(newPassword));
         updateById(user);
         log.info("管理员重置用户{}密码", user.getUsername());
         return newPassword;
+    }
+
+    private static final String PASSWORD_CHARS =
+            "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+    private static final SecureRandom RANDOM = new SecureRandom();
+
+    /** 生成指定长度的强密码（去掉了易混淆的 0/O/1/l/I） */
+    private String generateStrongPassword(int length) {
+        StringBuilder sb = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
+            sb.append(PASSWORD_CHARS.charAt(RANDOM.nextInt(PASSWORD_CHARS.length())));
+        }
+        return sb.toString();
     }
 
     @Override

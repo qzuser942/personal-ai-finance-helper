@@ -44,7 +44,7 @@ public interface AiService {
     /**
      * 管理员获取全平台AI分析记录
      */
-    Map<String, Object> adminGetRecords(Integer page, Integer size, String username, String yearMonth);
+    Map<String, Object> adminGetRecords(Integer page, Integer size, String username, String startDate, String endDate);
 
     /**
      * 管理员获取AI分析详情

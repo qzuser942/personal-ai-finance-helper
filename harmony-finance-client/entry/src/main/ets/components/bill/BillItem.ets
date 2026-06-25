@@ -13,8 +13,8 @@ export struct BillItem {
   onItemClick?: () => void;
 
   /** 分类图标颜色映射 */
-  private getIconColor(type: string): string {
-    return type === 'income' ? '#4CAF50' : '#FF6B6B';
+  private getIconColor(type: string): ResourceColor {
+    return type === 'income' ? $r('app.color.success') : $r('app.color.danger');
   }
 
   private getIconTag(categoryName: string): string {
@@ -38,17 +38,17 @@ export struct BillItem {
         .height(46)
         .textAlign(TextAlign.Center)
         .borderRadius(12)
-        .backgroundColor(this.bill.type === 'income' ? '#E8F5E9' : '#FFEBEE')
+        .backgroundColor($r('app.color.bg_page'))
 
       // 中间信息区域
       Column() {
         Text(this.categoryName || this.bill.categoryId.toString())
           .fontSize(15)
           .fontWeight(FontWeight.Medium)
-          .fontColor('#333333')
+          .fontColor($r('app.color.text_primary'))
         Text(this.bill.remark || '无备注')
           .fontSize(12)
-          .fontColor('#999999')
+          .fontColor($r('app.color.text_hint'))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .margin({ top: 2 })
@@ -62,18 +62,18 @@ export struct BillItem {
         Text(`${this.bill.type === 'income' ? '+' : '-'}${this.bill.amount.toFixed(2)}`)
           .fontSize(16)
           .fontWeight(FontWeight.Bold)
-          .fontColor(this.bill.type === 'income' ? '#4CAF50' : '#333333')
+          .fontColor(this.bill.type === 'income' ? $r('app.color.success') : $r('app.color.text_primary'))
 
         Text(this.bill.consumeTime ? this.bill.consumeTime.substring(0, 10) : '')
           .fontSize(11)
-          .fontColor('#BBBBBB')
+          .fontColor($r('app.color.text_hint'))
           .margin({ top: 2 })
       }
       .alignItems(HorizontalAlign.End)
     }
     .width('100%')
     .padding({ left: 16, right: 16, top: 14, bottom: 14 })
-    .backgroundColor('#FFFFFF')
+    .backgroundColor($r('app.color.bg_card'))
     .borderRadius(8)
     .onClick(() => {
       if (this.onItemClick) {

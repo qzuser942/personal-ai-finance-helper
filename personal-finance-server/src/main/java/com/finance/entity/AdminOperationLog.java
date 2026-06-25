@@ -23,6 +23,9 @@ public class AdminOperationLog {
     /** 操作管理员账号（冗余） */
     private String adminUsername;
 
+    /** 操作管理员角色：SUPER_ADMIN / OPERATOR */
+    private String adminRole;
+
     /** 操作类型描述 */
     private String operation;
 
@@ -31,6 +34,9 @@ public class AdminOperationLog {
 
     /** 请求路径 */
     private String requestUrl;
+
+    /** 关联资源ID（如userId、billId），用于追踪"谁动了什么数据" */
+    private String resourceId;
 
     /** 请求参数JSON */
     private String requestParams;

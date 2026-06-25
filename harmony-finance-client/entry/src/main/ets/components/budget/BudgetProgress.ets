@@ -14,12 +14,12 @@ export struct BudgetProgress {
     return Math.min((this.spentAmount / this.budgetAmount) * 100, 100);
   }
 
-  private getBarColor(): string {
+  private getBarColor(): ResourceColor {
     const pct = this.getPercent();
-    if (pct >= 100) return '#FF4444';
-    if (pct >= 80) return '#FF9800';
-    if (pct >= 50) return '#FFC107';
-    return '#4CAF50';
+    if (pct >= 100) return $r('app.color.danger');
+    if (pct >= 80) return $r('app.color.warning');
+    if (pct >= 50) return $r('app.color.warning');
+    return $r('app.color.success');
   }
 
   private getAlertText(): string {
@@ -33,17 +33,17 @@ export struct BudgetProgress {
       Row() {
         Text(this.categoryName)
           .fontSize(14)
-          .fontColor('#333333')
+          .fontColor($r('app.color.text_primary'))
           .layoutWeight(1)
 
         Text(`${this.spentAmount.toFixed(0)} / ${this.budgetAmount.toFixed(0)}`)
           .fontSize(12)
-          .fontColor('#999999')
+          .fontColor($r('app.color.text_hint'))
 
         if (this.alertLevel) {
           Text(this.getAlertText())
             .fontSize(11)
-            .fontColor(this.alertLevel === 'OVER' ? '#FF4444' : '#FF9800')
+            .fontColor(this.alertLevel === 'OVER' ? $r('app.color.danger') : $r('app.color.warning'))
             .margin({ left: 6 })
         }
       }

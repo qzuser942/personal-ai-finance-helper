@@ -1,26 +1,35 @@
 package com.finance.aspect;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.finance.annotation.AdminLog;
 import com.finance.entity.AdminOperationLog;
 import com.finance.interceptor.AdminJwtInterceptor;
 import com.finance.service.AdminOperationLogService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Pointcut;
+import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import java.lang.reflect.Method;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 管理员操作日志AOP切面
- * 自动记录所有 /api/admin/** 下 POST/PUT/DELETE 请求
+ * <p>
+ * 自动记录所有 /api/admin/** 下：
+ * <ul>
+ * <li>POST/PUT/DELETE 写操作</li>
+ * <li>高敏读操作（带 @Sensitive 注解）</li>
+ * </ul>
  *
  * @author 胡宪棋
  */
@@ -33,11 +42,9 @@ public class AdminLogAspect {
     private final AdminOperationLogService adminOperationLogService;
     private final ObjectMapper objectMapper;
 
-    /**
-     * 切点：所有管理员Controller
-     */
     @Pointcut("execution(* com.finance.controller.admin..*.*(..))")
-    public void adminControllerPointcut() {}
+    public void adminControllerPointcut() {
+    }
 
     @Around("adminControllerPointcut()")
     public Object around(ProceedingJoinPoint joinPoint) throws Throwable {
@@ -49,42 +56,65 @@ public class AdminLogAspect {
         HttpServletRequest request = attributes.getRequest();
         String method = request.getMethod();
 
-        // 仅记录 POST/PUT/DELETE
-        if (!"POST".equalsIgnoreCase(method)
-                && !"PUT".equalsIgnoreCase(method)
-                && !"DELETE".equalsIgnoreCase(method)) {
+        // 排除登录接口 + 管理员信息自查询（/info 每次路由切换都会调用，不能污染审计日志）
+        // 排除操作日志查询本身（避免运营查看日志时产生自引用日志）
+        String uri = request.getRequestURI();
+        if (uri.contains("/login") || uri.endsWith("/info") || uri.contains("/admin/log")) {
             return joinPoint.proceed();
         }
 
-        // 排除登录接口
-        if (request.getRequestURI().contains("/login")) {
+        // 仅记录写操作 或 高敏读操作
+        boolean isWrite = "POST".equalsIgnoreCase(method)
+                || "PUT".equalsIgnoreCase(method)
+                || "DELETE".equalsIgnoreCase(method);
+        boolean isSensitive = isSensitiveRead(joinPoint);
+        if (!isWrite && !isSensitive) {
             return joinPoint.proceed();
         }
 
         Long adminId = (Long) request.getAttribute(AdminJwtInterceptor.ADMIN_ID_ATTR);
         String username = (String) request.getAttribute(AdminJwtInterceptor.ADMIN_USERNAME_ATTR);
+        String role = (String) request.getAttribute(AdminJwtInterceptor.ADMIN_ROLE_ATTR);
 
         AdminOperationLog operationLog = new AdminOperationLog();
         operationLog.setAdminId(adminId != null ? adminId : 0L);
         operationLog.setAdminUsername(username != null ? username : "unknown");
+        operationLog.setAdminRole(role);
         operationLog.setMethod(method);
         operationLog.setRequestUrl(request.getRequestURI());
+        operationLog.setResourceId(extractResourceId(request.getRequestURI()));
         operationLog.setIpAddress(getIpAddress(request));
         operationLog.setCreatedAt(LocalDateTime.now());
 
-        // 获取操作描述（优先使用 @AdminLog 注解）
-        AdminLog adminLog = getAdminLogAnnotation(joinPoint);
+        com.finance.annotation.AdminLog adminLog = getAdminLogAnnotation(joinPoint);
         if (adminLog != null && !adminLog.value().isEmpty()) {
             operationLog.setOperation(adminLog.value());
         } else {
-            operationLog.setOperation(buildDefaultOperation(method, request.getRequestURI()));
+            // 关键修复：@SensitiveRead 注解的 value 也作为操作描述（如"导出全平台账单"）
+            com.finance.annotation.SensitiveRead sensitive = getSensitiveReadAnnotation(joinPoint);
+            if (sensitive != null && !sensitive.value().isEmpty()) {
+                operationLog.setOperation(sensitive.value());
+            } else {
+                operationLog.setOperation(buildDefaultOperation(method, request.getRequestURI()));
+            }
         }
 
-        // 记录请求参数（脱敏）
+        // 记录请求参数（脱敏密码字段，过滤不可序列化的Servlet对象）
         try {
             Object[] args = joinPoint.getArgs();
-            String paramsJson = objectMapper.writeValueAsString(args);
-            // 截断过长参数
+            // 过滤掉 HttpServletRequest/HttpServletResponse 等不可序列化的参数
+            List<Object> serializableArgs = new ArrayList<>();
+            for (Object arg : args) {
+                if (arg == null)
+                    continue;
+                if (arg instanceof HttpServletRequest || arg instanceof HttpServletResponse)
+                    continue;
+                serializableArgs.add(arg);
+            }
+            String paramsJson = objectMapper.writeValueAsString(serializableArgs);
+            // 脱敏：密码字段统一替换
+            paramsJson = paramsJson.replaceAll("\"(password|newPassword)\"\\s*:\\s*\"[^\"]*\"",
+                    "\"$1\":\"******\"");
             if (paramsJson.length() > 2000) {
                 paramsJson = paramsJson.substring(0, 2000) + "...";
             }
@@ -104,7 +134,6 @@ public class AdminLogAspect {
                     : "未知错误");
             throw e;
         } finally {
-            // 异步保存操作日志
             try {
                 adminOperationLogService.save(operationLog);
             } catch (Exception e) {
@@ -113,16 +142,29 @@ public class AdminLogAspect {
         }
     }
 
-    private AdminLog getAdminLogAnnotation(ProceedingJoinPoint joinPoint) {
+    private boolean isSensitiveRead(ProceedingJoinPoint joinPoint) {
+        Method m = getMethod(joinPoint);
+        return m != null && m.isAnnotationPresent(com.finance.annotation.SensitiveRead.class);
+    }
+
+    private Method getMethod(ProceedingJoinPoint joinPoint) {
         try {
+            MethodSignature ms = (MethodSignature) joinPoint.getSignature();
             return joinPoint.getTarget().getClass()
-                    .getMethod(joinPoint.getSignature().getName(),
-                            ((org.aspectj.lang.reflect.MethodSignature) joinPoint.getSignature())
-                                    .getParameterTypes())
-                    .getAnnotation(AdminLog.class);
+                    .getMethod(ms.getName(), ms.getParameterTypes());
         } catch (Exception e) {
             return null;
         }
+    }
+
+    private com.finance.annotation.AdminLog getAdminLogAnnotation(ProceedingJoinPoint joinPoint) {
+        Method m = getMethod(joinPoint);
+        return m == null ? null : m.getAnnotation(com.finance.annotation.AdminLog.class);
+    }
+
+    private com.finance.annotation.SensitiveRead getSensitiveReadAnnotation(ProceedingJoinPoint joinPoint) {
+        Method m = getMethod(joinPoint);
+        return m == null ? null : m.getAnnotation(com.finance.annotation.SensitiveRead.class);
     }
 
     private String buildDefaultOperation(String method, String uri) {
@@ -155,6 +197,30 @@ public class AdminLogAspect {
             };
         }
         return "管理员操作";
+    }
+
+    private String extractResourceId(String uri) {
+        // 从URL路径中提取资源ID，如 /api/admin/user/123/status → userId:123
+        if (uri == null)
+            return null;
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("/(\\d+)(?:/|$)").matcher(uri);
+        if (m.find()) {
+            String id = m.group(1);
+            if (uri.contains("/user"))
+                return "userId:" + id;
+            if (uri.contains("/bill"))
+                return "billId:" + id;
+            if (uri.contains("/category"))
+                return "categoryId:" + id;
+            if (uri.contains("/budget"))
+                return "budgetId:" + id;
+            if (uri.contains("/account"))
+                return "adminId:" + id;
+            if (uri.contains("/file"))
+                return "fileId:" + id;
+            return "resourceId:" + id;
+        }
+        return null;
     }
 
     private String getIpAddress(HttpServletRequest request) {

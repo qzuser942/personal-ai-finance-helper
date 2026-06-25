@@ -14,7 +14,8 @@
       <el-button type="primary" @click="fetchData" :icon="Search">搜索</el-button>
       <el-button @click="resetSearch">重置</el-button>
       <div style="flex:1" />
-      <el-button class="gradient-btn" @click="handleExport">📥 导出Excel</el-button>
+      <!-- 关键修复：导出按钮加 v-permission（修复 P1-4），从后端 permissions 列表判断 -->
+      <el-button class="gradient-btn" @click="handleExport" v-permission="'user:export'">📥 导出Excel</el-button>
     </div>
 
     <!-- 数据表格 -->
@@ -35,7 +36,8 @@
           <template #default="{row}">
             <el-button size="small" :type="row.status===1?'warning':'success'"
               @click="handleToggleStatus(row)">{{ row.status===1?'冻结':'解冻' }}</el-button>
-            <el-button size="small" type="info" @click="handleResetPwd(row)">重置密码</el-button>
+            <!-- 关键修复：重置密码仅超管可见（运营不再有该权限），v-permission 指令从后端判断 -->
+            <el-button size="small" type="info" @click="handleResetPwd(row)" v-permission="'user:resetPassword'">重置密码</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -66,10 +68,14 @@
  * 用户管理 - 列表/冻结/解冻/重置密码/导出
  * @author 胡宪棋 软件2413 202421332084
  */
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { getUserPage, updateUserStatus, resetUserPassword } from '@/api/user'
+import { useUserStore } from '@/store/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
+import { downloadFile } from '@/utils/download'
+
+const isSuperAdmin = computed(() => useUserStore().isSuperAdmin)
 
 const loading = ref(false)
 const tableData = ref([])
@@ -130,11 +136,11 @@ async function confirmResetPwd() {
   } catch (e) { /* ignore */ }
 }
 
-function handleExport() {
-  const params = new URLSearchParams()
-  if (search.username) params.append('username', search.username)
-  if (search.status !== null && search.status !== '') params.append('status', search.status)
-  params.append('_t', String(Date.now()))
-  window.open(`/api/admin/user/export?${params.toString()}`)
+// 关键修复：用 downloadFile 工具下载（带 Authorization header）
+async function handleExport() {
+  const params = {}
+  if (search.username) params.username = search.username
+  if (search.status !== null && search.status !== '') params.status = search.status
+  await downloadFile('/api/admin/user/export', params, `users_${Date.now()}.xlsx`)
 }
 </script>

@@ -2,6 +2,7 @@
   "src": [
     "pages/auth/LoginPage",
     "pages/auth/RegisterPage",
+    "pages/auth/LockPage",
     "pages/index/MainPage",
     "pages/index/IndexPage",
     "pages/bill/BillListPage",

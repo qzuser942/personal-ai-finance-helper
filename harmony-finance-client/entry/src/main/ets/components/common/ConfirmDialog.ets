@@ -20,7 +20,7 @@ export struct ConfirmDialog {
 
       Text(this.message)
         .fontSize(14)
-        .fontColor('#666666')
+        .fontColor($r('app.color.text_secondary'))
         .textAlign(TextAlign.Center)
         .margin({ bottom: 20 })
         .width('100%')
@@ -28,8 +28,8 @@ export struct ConfirmDialog {
       Row() {
         Button(this.cancelText)
           .fontSize(14)
-          .backgroundColor('#F0F0F0')
-          .fontColor('#333333')
+          .backgroundColor($r('app.color.bg_page'))
+          .fontColor($r('app.color.text_primary'))
           .flexGrow(1)
           .onClick(() => {
             this.controller.close();
@@ -37,8 +37,8 @@ export struct ConfirmDialog {
 
         Button(this.confirmText)
           .fontSize(14)
-          .backgroundColor('#4A90D9')
-          .fontColor('#FFFFFF')
+          .backgroundColor($r('app.color.primary'))
+          .fontColor(Color.White)
           .flexGrow(1)
           .margin({ left: 10 })
           .onClick(() => {
@@ -53,6 +53,6 @@ export struct ConfirmDialog {
     .width('75%')
     .padding(24)
     .borderRadius(12)
-    .backgroundColor('#FFFFFF')
+    .backgroundColor($r('app.color.bg_card'))
   }
 }

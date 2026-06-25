@@ -3,6 +3,7 @@
 > **作者**：胡宪棋 | **班级**：软件2413 | **学号**：202421332084  
 > **技术栈**：Vue3 + Vite + Element Plus + ECharts + Axios + Pinia  
 > **对接后端**：SpringBoot 3.x `http://<电脑IP>:8080`
+> **版本**：V2.0 | **更新日期**：2026-06-25
 
 ---
 
@@ -43,7 +44,7 @@ npm run dev
 | 模块 | 功能 | 接口前缀 |
 |------|------|----------|
 | **登录** | 管理员独立登录，JWT存储 | `/api/admin/login` |
-| **首页看板** | 总用户/活跃/账单量/交易额统计、ECharts趋势图、消费排行 | `/api/admin/dashboard` |
+| **首页看板** | 总用户/活跃/账单量/交易额统计、双图分离趋势（业务规模+营收趋势）、区间切换（近3/6/12月）、自动刷新30s、异常检测告警、看板导出CSV | `/api/admin/dashboard` |
 | **用户管理** | 分页列表、冻结/解冻、重置密码、Excel导出 | `/api/admin/user/**` |
 | **账单管理** | 全平台账单分页、多条件筛选、编辑修正、删除、全量导出 | `/api/admin/bill/**` |
 | **分类管理** | 全局分类CRUD、系统内置/用户自定义分类展示 | `/api/admin/category/**` |
@@ -91,7 +92,8 @@ finance-admin-web/
     │   └── app.js                # 主题/侧边栏
     ├── utils/                    # 工具
     │   ├── date.js               # 日期格式化
-    │   └── excel.js              # Excel导出
+    │   ├── excel.js              # Excel导出
+    │   └── download.js           # 文件下载（Blob + Content-Disposition解析）
     └── views/                    # 页面（9个）
         ├── login/LoginView.vue
         ├── dashboard/DashboardView.vue
@@ -125,16 +127,28 @@ finance-admin-web/
 - Axios拦截器自动携带JWT Admin Token
 - 401/403自动跳转登录页
 - 所有删除操作二次确认弹窗
-- 所有管理员操作自动记录至后端操作日志表
+- 所有管理员操作自动记录至后端操作日志表（含操作人角色、关联资源ID）
+
+### 性能优化
+- **localStorage缓存**：看板数据缓存5分钟（TTL），避免重复请求
+- **KeepAlive组件保活**：页面切换不销毁，返回时秒开不重新加载
+- **骨架屏（Skeleton）**：数据加载中显示Element Plus骨架屏占位，提升感知速度
+- **图表实例复用**：ECharts实例复用 + ResizeObserver响应式调整，避免内存泄漏
+- **30秒自动刷新**：看板数据定时轮询，仪表盘类数据实时更新
+
+### 导出功能
+- **看板报表导出**：一键导出CSV，含月度总览+趋势数据+用户排行TOP10+分类消费分布 4段数据
+- **通用downloadFile封装**：超时60s + Content-Disposition文件名解析 + 空Blob检测
+- **Excel导出**：用户/账单/日志列表支持xlsx导出
 
 ---
 
 ## 五、后端接口对照
 
-全部31个管理员接口严格对照 `API接口文档说明书.md` 第11章：
+全部33个管理员接口严格对照 `API接口文档说明书.md` 第11章：
 
 - 认证(1): `POST /api/admin/login`
-- 看板(1): `GET /api/admin/dashboard`
+- 看板(3): `GET /api/admin/dashboard`（含区间切换 months=3/6/12）、`GET /api/admin/dashboard/alerts`（异常告警）、`GET /api/admin/dashboard/export`（导出CSV）
 - 用户(5): page, status, reset-password, export, bills
 - 账单(5): page, update, delete, statistics, export-all
 - 分类(4): list, create, update, delete
@@ -155,4 +169,4 @@ npm run build
 
 ---
 
-*文档版本：V1.0 | 2026-06-23 | 胡宪棋*
+*文档版本：V2.0 | 2026-06-25 | 胡宪棋*

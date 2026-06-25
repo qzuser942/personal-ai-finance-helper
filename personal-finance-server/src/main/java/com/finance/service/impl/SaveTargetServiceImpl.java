@@ -61,8 +61,9 @@ public class SaveTargetServiceImpl extends ServiceImpl<SaveTargetMapper, SaveTar
     public SaveTarget updateTarget(Long targetId, String name, BigDecimal targetAmount,
                                     BigDecimal addAmount, Long userId, boolean isAdmin) {
         SaveTarget target = getById(targetId);
-        if (target == null) throw new BusinessException(ErrorCode.BILL_NOT_FOUND);
-        if (!isAdmin && !target.getUserId().equals(userId)) throw new BusinessException(ErrorCode.BILL_NOT_OWNED);
+        // P1-2 修复：错误码语义错位（之前用 BILL_NOT_FOUND）
+        if (target == null) throw new BusinessException(ErrorCode.TARGET_NOT_FOUND);
+        if (!isAdmin && !target.getUserId().equals(userId)) throw new BusinessException(ErrorCode.TARGET_NOT_OWNED);
 
         // 追加存款
         if (addAmount != null && addAmount.compareTo(BigDecimal.ZERO) > 0) {
@@ -84,8 +85,9 @@ public class SaveTargetServiceImpl extends ServiceImpl<SaveTargetMapper, SaveTar
     @Transactional
     public void deleteTarget(Long targetId, Long userId, boolean isAdmin) {
         SaveTarget target = getById(targetId);
-        if (target == null) throw new BusinessException(ErrorCode.BILL_NOT_FOUND);
-        if (!isAdmin && !target.getUserId().equals(userId)) throw new BusinessException(ErrorCode.BILL_NOT_OWNED);
+        // P1-2 修复：错误码语义错位
+        if (target == null) throw new BusinessException(ErrorCode.TARGET_NOT_FOUND);
+        if (!isAdmin && !target.getUserId().equals(userId)) throw new BusinessException(ErrorCode.TARGET_NOT_OWNED);
         removeById(targetId);
     }
 

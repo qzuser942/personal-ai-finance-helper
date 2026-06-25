@@ -137,8 +137,9 @@ public class BudgetServiceImpl extends ServiceImpl<BudgetMapper, Budget> impleme
     @Transactional
     public Budget adminUpdateBudget(Long budgetId, Budget budget) {
         Budget existing = getById(budgetId);
+        // P1-3 修复：错误码语义错位（之前用 BILL_NOT_FOUND 表示"预算不存在"）
         if (existing == null) {
-            throw new BusinessException(ErrorCode.BILL_NOT_FOUND);
+            throw new BusinessException(ErrorCode.BUDGET_NOT_FOUND);
         }
         if (budget.getTotalBudget() != null) existing.setTotalBudget(budget.getTotalBudget());
         if (budget.getCategoryBudgets() != null) existing.setCategoryBudgets(budget.getCategoryBudgets());

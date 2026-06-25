@@ -6,7 +6,8 @@
   <div class="category-manage">
     <div class="page-header glass-card">
       <h2 class="page-title">🏷️ 分类管理</h2>
-      <el-button class="gradient-btn" @click="openAddDialog">+ 新增全局分类</el-button>
+      <!-- 关键修复：仅超管可新增全局分类（v-permission 指令从后端 permissions 列表判断） -->
+      <el-button class="gradient-btn" @click="openAddDialog" v-permission="'category:write'">+ 新增全局分类</el-button>
     </div>
 
     <el-card class="glass-card" shadow="never">
@@ -27,8 +28,9 @@
         </el-table-column>
         <el-table-column label="操作" width="160">
           <template #default="{row}">
-            <el-button size="small" type="primary" @click="openEditDialog(row)">编辑</el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row)" :disabled="row.isSystem && !isSuperAdmin">删除</el-button>
+            <!-- 关键修复：编辑/删除仅超管可见（运营对系统分类只读），v-permission 指令从后端判断 -->
+            <el-button size="small" type="primary" @click="openEditDialog(row)" v-permission="'category:write'">编辑</el-button>
+            <el-button size="small" type="danger" @click="handleDelete(row)" v-permission="'category:delete'">删除</el-button>
           </template>
         </el-table-column>
       </el-table>

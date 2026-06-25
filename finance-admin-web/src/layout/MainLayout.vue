@@ -32,9 +32,9 @@
       <!-- 内容区 -->
       <el-main class="main-content">
         <router-view v-slot="{ Component }">
-          <transition name="fade-slide" mode="out-in">
+          <keep-alive>
             <component :is="Component" />
-          </transition>
+          </keep-alive>
         </router-view>
       </el-main>
     </el-container>
@@ -46,11 +46,18 @@
  * 后台主布局 - 侧边栏+顶栏+内容区
  * @author 胡宪棋 软件2413 202421332084
  */
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import SideBar from './SideBar.vue'
 import HeaderBar from './HeaderBar.vue'
+import { useUserStore } from '@/store/user'
 
 const sidebarCollapsed = ref(false)
+const userStore = useUserStore()
+
+// 关键修复：进入后台时拉取一次最新角色/用户名（防 JWT 签发后被改）
+onMounted(() => {
+  userStore.fetchInfo()
+})
 </script>
 
 <style scoped>
@@ -91,18 +98,22 @@ const sidebarCollapsed = ref(false)
   opacity: 0;
   transform: translateY(-10px);
 }
-:deep(.el-main) {
+::deep(.el-main) {
   padding: 20px;
   overflow-y: auto;
   background: #F8F9FD;
 }
+.page-loading {
+  padding: 20px;
+  min-height: 300px;
+}
 
 /* 暗黑模式 */
-:global(.dark) .admin-header {
+::global(.dark) .admin-header {
   background: rgba(36, 40, 54, 0.9);
   border-bottom: 1px solid #3A3D4A;
 }
-:global(.dark) :deep(.el-main) {
+::global(.dark) :deep(.el-main) {
   background: #1A1D29;
 }
 </style>

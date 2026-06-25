@@ -73,6 +73,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         registry.addResourceHandler("/uploads/**")
                 .addResourceLocations("file:./uploads/");
+        // 关键修复：补 backups 静态映射（管理员点击历史备份可直接下载）
+        registry.addResourceHandler("/backups/**")
+                .addResourceLocations("file:./backups/");
         registry.addResourceHandler("/doc.html")
                 .addResourceLocations("classpath:/META-INF/resources/");
         registry.addResourceHandler("/webjars/**")

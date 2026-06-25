@@ -3,6 +3,7 @@ package com.finance.ai.config;
 import com.finance.ai.client.AliCloudEmbeddingClient;
 import com.finance.ai.client.DeepSeekChatClient;
 import com.finance.config.AiConfig;
+import com.finance.mapper.AiConfigMapper;
 import io.qdrant.client.QdrantClient;
 import io.qdrant.client.QdrantGrpcClient;
 import lombok.RequiredArgsConstructor;
@@ -22,16 +23,20 @@ import org.springframework.context.annotation.Configuration;
 public class AiClientConfig {
 
     private final AiConfig aiConfig;
+    private final AiConfigMapper aiConfigMapper;
     private final AliCloudEmbeddingConfig aliCloudEmbeddingConfig;
     private final QdrantConfig qdrantConfig;
 
     /**
-     * DeepSeek大模型客户端（单例，复用HTTP连接池）
+     * DeepSeek大模型客户端（单例，支持数据库动态配置热更新）
+     * <p>
+     * 配置优先级：数据库 ai_config 表 > application.yml
+     * </p>
      */
     @Bean
     public DeepSeekChatClient deepSeekChatClient() {
-        log.info("初始化 DeepSeekChatClient: model={}, baseUrl={}", aiConfig.getModelName(), aiConfig.getBaseUrl());
-        return new DeepSeekChatClient(aiConfig);
+        log.info("初始化 DeepSeekChatClient（DB优先，YAML兜底）");
+        return new DeepSeekChatClient(aiConfig, aiConfigMapper);
     }
 
     /**
@@ -51,9 +56,9 @@ public class AiClientConfig {
     public QdrantClient qdrantClient() {
         log.info("初始化 QdrantClient: host={}, port={}", qdrantConfig.getHost(), qdrantConfig.getPort());
         QdrantGrpcClient grpcClient = QdrantGrpcClient.newBuilder(
-                        qdrantConfig.getHost(),
-                        qdrantConfig.getPort(),
-                        qdrantConfig.isUseTls())
+                qdrantConfig.getHost(),
+                qdrantConfig.getPort(),
+                qdrantConfig.isUseTls())
                 .build();
         return new QdrantClient(grpcClient);
     }

@@ -21,6 +21,7 @@ public class AiAnalysisRecord {
     private Long userId;
 
     /** 分析月份 YYYY-MM */
+    @TableField("yearmonth")
     private String yearMonth;
 
     /** AI分析结果JSON */

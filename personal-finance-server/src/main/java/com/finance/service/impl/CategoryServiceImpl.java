@@ -80,8 +80,8 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category> i
         if (category == null) {
             throw new BusinessException(ErrorCode.CATEGORY_NOT_AVAILABLE);
         }
-        // 系统分类保护
-        if (category.getUserId() == 0) {
+        // 系统分类保护 - 关键修复：超管可删除，非超管不可
+        if (category.getUserId() == 0 && !isAdmin) {
             throw new BusinessException(ErrorCode.SYSTEM_CATEGORY_PROTECTED);
         }
         if (!isAdmin && !category.getUserId().equals(userId)) {

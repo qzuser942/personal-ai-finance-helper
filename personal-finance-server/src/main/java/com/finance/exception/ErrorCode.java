@@ -31,6 +31,18 @@ public enum ErrorCode {
     CATEGORY_NOT_AVAILABLE(20004, "分类不存在或不可用"),
     CONSUME_TIME_FORMAT_ERROR(20005, "消费时间格式不正确"),
 
+    // ==================== 存钱目标 25xxx ====================
+    // P1-2 修复：错误码语义错位（BILL_NOT_FOUND 表示"存钱目标不存在"）
+    TARGET_NOT_FOUND(25001, "存钱目标不存在"),
+    TARGET_NOT_OWNED(25002, "无权操作此存钱目标"),
+    TARGET_ALREADY_COMPLETED(25003, "存钱目标已达成"),
+
+    // ==================== 预算 26xxx ====================
+    // P1-3 修复：错误码语义错位
+    BUDGET_NOT_FOUND(26001, "预算不存在"),
+    BUDGET_NOT_OWNED(26002, "无权操作此预算"),
+    BUDGET_AMOUNT_INVALID(26003, "预算金额必须大于0"),
+
     // ==================== 分类业务 3xxxx ====================
     CATEGORY_NAME_EXISTS(30001, "分类名称已存在"),
     SYSTEM_CATEGORY_PROTECTED(30002, "系统内置分类不可修改或删除"),
@@ -56,6 +68,8 @@ public enum ErrorCode {
     TARGET_USER_NOT_FOUND(60003, "目标用户不存在"),
     DB_BACKUP_FAILED(60004, "数据库备份失败，请检查数据库服务"),
     TARGET_ADMIN_NOT_FOUND(60005, "目标管理员不存在"),
+    LAST_SUPER_ADMIN(60006, "系统至少保留1名超级管理员"),
+    PASSWORD_TOO_WEAK(60007, "密码强度不足，至少8位"),
 
     // ==================== 离线同步 7xxxx ====================
     SYNC_DATA_FORMAT_ERROR(70001, "批量同步数据格式错误"),

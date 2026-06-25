@@ -1,6 +1,7 @@
 package com.finance.controller.admin;
 
 import com.finance.annotation.AdminLog;
+import com.finance.annotation.RequireSuperAdmin;
 import com.finance.entity.Budget;
 import com.finance.service.BudgetService;
 import com.finance.service.SaveTargetService;
@@ -13,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.util.Map;
 
-@Tag(name = "管理员-预算目标", description = "查看/修正用户预算与存钱目标")
+@Tag(name = "管理员-预算目标", description = "查看/修正用户预算与存钱目标（修仅超管）")
 @RestController
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor
@@ -32,8 +33,9 @@ public class AdminBudgetController {
         return Result.ok(budgetService.getBudgetByMonth(userId, yearMonth));
     }
 
-    @Operation(summary = "修正用户预算")
+    @Operation(summary = "修正用户预算（仅超管）")
     @PutMapping("/budget/{id}")
+    @RequireSuperAdmin
     @AdminLog("修正用户预算")
     public Result<Map<String, Object>> updateBudget(@PathVariable Long id, @RequestBody Budget budget) {
         Budget updated = budgetService.adminUpdateBudget(id, budget);
@@ -46,8 +48,9 @@ public class AdminBudgetController {
         return Result.ok(saveTargetService.getUserTargets(userId, null));
     }
 
-    @Operation(summary = "修正用户存钱目标")
+    @Operation(summary = "修正用户存钱目标（仅超管）")
     @PutMapping("/save-target/{id}")
+    @RequireSuperAdmin
     @AdminLog("修正用户存钱目标")
     public Result<?> updateTarget(@PathVariable Long id, @RequestBody Map<String, Object> body) {
         String name = (String) body.get("name");

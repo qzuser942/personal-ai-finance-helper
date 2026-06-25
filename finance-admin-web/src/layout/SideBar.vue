@@ -47,7 +47,7 @@
         <span>预算目标管理</span>
       </el-menu-item>
 
-      <el-menu-item index="/ai-config">
+      <el-menu-item index="/ai-config" v-if="isSuperAdmin">
         <el-icon><Cpu /></el-icon>
         <span>AI系统配置</span>
       </el-menu-item>
@@ -57,14 +57,15 @@
         <span>操作日志</span>
       </el-menu-item>
 
-      <el-sub-menu index="system" v-if="isSuperAdmin">
-        <template #title>
-          <el-icon><Setting /></el-icon>
-          <span>系统运维</span>
-        </template>
-        <el-menu-item index="/admins">管理员账号</el-menu-item>
-        <el-menu-item index="/files">文件管理</el-menu-item>
-      </el-sub-menu>
+      <el-menu-item index="/admins" v-if="isSuperAdmin">
+        <el-icon><Setting /></el-icon>
+        <span>管理员账号</span>
+      </el-menu-item>
+
+      <el-menu-item index="/files" v-if="isSuperAdmin">
+        <el-icon><Folder /></el-icon>
+        <span>文件管理</span>
+      </el-menu-item>
     </el-menu>
 
     <!-- 底部信息 -->
@@ -141,12 +142,6 @@ const username = computed(() => userStore.username)
   background: linear-gradient(135deg, rgba(108, 92, 231, 0.45), rgba(74, 61, 182, 0.35)) !important;
   box-shadow: 0 4px 12px rgba(108, 92, 231, 0.3);
   border-left: 3px solid #A29BFE;
-}
-:deep(.el-sub-menu .el-menu) {
-  background: rgba(255,255,255,0.03) !important;
-}
-:deep(.el-sub-menu .el-menu-item) {
-  padding-left: 56px !important;
 }
 .sidebar-footer {
   padding: 16px;

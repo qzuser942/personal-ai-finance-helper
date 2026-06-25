@@ -3,6 +3,7 @@
 > **作者**：胡宪棋 | **班级**：软件2413 | **学号**：202421332084  
 > **技术栈**：HarmonyOS ArkTS + Router + Preferences + Canvas图表 + Axios网络封装  
 > **后端**：SpringBoot 3.x (对接项目 `personal-finance-server`)
+> **版本**：V1.0 | **更新日期**：2026-06-25（前端未变更，后端同步至V2.0）
 
 ---
 
@@ -42,14 +43,61 @@ static BASE_URL: string = 'http://192.168.1.100:8080';
 
 ---
 
-## 三、导入与运行
+## 三、如何自定义App图标
 
-### 3.1 开发环境要求
+### 3.1 图标格式要求
+
+| 属性 | 要求 |
+|------|------|
+| 文件格式 | **PNG**（推荐）、WEBP |
+| 分辨率 | 建议 **≥1024×1024 px**（构建系统仅支持等比缩小，不支持放大，低分辨率图会导致模糊） |
+| 色彩模式 | RGBA（支持透明通道） |
+| 文件大小 | 建议不超过 **1MB** |
+| 背景 | 建议使用**不透明背景**，避免在桌面显示异常 |
+| 安全区域 | 核心内容位于中心 72×72 dp 内，边缘留裁剪余量 |
+
+> **注意**：不要使用圆角图标，HarmonyOS 系统会自动裁剪为圆角矩形/圆形等形状。
+
+### 3.2 图标上传位置（注意两个位置 best practice 是相同的图标）
+
+| 图标类型 | 替换文件路径 | 配置字段 |
+|---------|------------|---------|
+| 应用图标（桌面） | `AppScope/resources/base/media/app_icon.png` | `AppScope/app.json5` → `"icon": "$media:app_icon"` |
+| 入口图标（启动页） | `entry/src/main/resources/base/media/icon.png` | `entry/src/main/module.json5` → `"icon": "$media:icon"` / `"startWindowIcon": "$media:icon"` |
+
+### 3.3 操作步骤
+
+1. 准备一张 **1024×1024** 的 PNG 图片，确保核心内容居中，留有安全边距
+2. 用 Windows 画图打开 → **另存为 → PNG 图片**（确保是真正的 PNG 格式，不是改了后缀名的其他格式）
+3. 将图片命名为 `app_icon.png`，覆盖到 `AppScope/resources/base/media/app_icon.png`
+4. 将同一图片（或不同图片）命名为 `icon.png`，覆盖到 `entry/src/main/resources/base/media/icon.png`
+5. 在 DevEco Studio 中依次执行：**Build → Clean Project**，然后 **Build → Rebuild Project**
+6. 设备上**卸载旧版本 App**，再重新 Run 部署（确保图标完全刷新）
+
+### 3.4 常见问题：图标替换后不生效
+
+**现象**：替换了 `app_icon.png` 和 `icon.png`，但 App 图标仍显示默认绿色玻璃图标。
+
+**原因**：DevEco Studio 的增量构建系统缓存了旧的无效图标文件，不会自动检测 PNG 文件变更。
+
+**解决方法**：
+
+1. 确保图片是真正的 PNG 格式（不能把 `.jpg` 直接改后缀为 `.png`）
+2. 在 DevEco Studio 中执行 **Build → Clean Project**
+3. 手动删除项目根目录下的 `.hvigor` 文件夹和 `entry/build` 文件夹
+4. 执行 **Build → Rebuild Project** 后重新 Run
+5. 在设备上**先卸载旧版本 App**，再重新安装
+
+---
+
+## 四、导入与运行
+
+### 4.1 开发环境要求
 - **DevEco Studio**：4.0 Release 及以上
 - **HarmonyOS SDK**：API 10+
 - **测试设备**：HarmonyOS 4.0+ 真机或模拟器
 
-### 3.2 导入步骤
+### 4.2 导入步骤
 1. 启动 DevEco Studio
 2. 文件 → 打开 → 选择本项目根目录 `harmony-finance-client`
 3. 等待 Gradle/Hvigor 同步完成
@@ -57,7 +105,7 @@ static BASE_URL: string = 'http://192.168.1.100:8080';
 5. 连接鸿蒙手机或启动模拟器
 6. 点击运行（▶）按钮
 
-### 3.3 运行前提
+### 4.3 运行前提
 - 后端SpringBoot服务已启动（电脑上运行 `personal-finance-server`）
 - MySQL数据库已初始化（`finance_db`）
 - 手机与电脑在同一WiFi网络下
@@ -65,7 +113,7 @@ static BASE_URL: string = 'http://192.168.1.100:8080';
 
 ---
 
-## 四、项目工程结构
+## 五、项目工程结构
 
 ```
 harmony-finance-client/
@@ -150,38 +198,38 @@ harmony-finance-client/
 
 ---
 
-## 五、模块功能说明
+## 六、模块功能说明
 
-### 5.1 认证模块（auth）
+### 6.1 认证模块（auth）
 - **LoginPage**：账号密码登录、记住密码、JWT自动缓存
 - **RegisterPage**：新用户注册、前端格式校验
 
-### 5.2 首页记账（index）
+### 6.2 首页记账（index）
 - **MainPage**：底部Tab导航容器（记账/账单/统计/目标/AI/设置）
 - **离线记账核心逻辑**：
   - 网络正常 → 直接提交后端
   - 网络异常 → 存入Preferences离线队列（max 100条）
   - 联网恢复 → 自动批量同步（APP启动时触发）
 
-### 5.3 账单流水（bill）
+### 6.3 账单流水（bill）
 - **BillListPage**：分页加载、下拉刷新、月份/类型/关键词筛选、长按删除、Excel导出
 - **BillDetailPage**：查看详情、编辑账单、删除账单
 
-### 5.4 月度统计（statistics）
+### 6.4 月度统计（statistics）
 - **StatisticsPage**：收入/支出/结余卡片、支出分类饼图（Canvas）、每日趋势柱状图（Canvas）、月份切换
 
-### 5.5 预算与存钱目标（budget）
+### 6.5 预算与存钱目标（budget）
 - **BudgetPage**：月度总预算+分类子预算设置、可视化进度条、预算预警（≥80%）、存钱目标创建/追加/归档
 
-### 5.6 AI分析（ai）
+### 6.6 AI分析（ai）
 - **AiAnalysisPage**：一键月度财务诊断、AI分析结果展示（冗余消费/不良习惯/省钱方案/复盘文案）、分析历史查看
 
-### 5.7 设置（settings）
+### 6.7 设置（settings）
 - **SettingsPage**：深浅色主题切换、数字密码锁、手动离线同步、账单备份、关于页面（作者信息+功能介绍）、退出登录
 
 ---
 
-## 六、技术要求遵守情况
+## 七、技术要求遵守情况
 
 | 要求 | 状态 | 说明 |
 |------|------|------|
@@ -197,7 +245,7 @@ harmony-finance-client/
 
 ---
 
-## 七、后端接口对照
+## 八、后端接口对照
 
 所有接口调用严格对照 `API接口文档说明书.md`，涉及以下35个普通用户端接口：
 
@@ -215,4 +263,4 @@ harmony-finance-client/
 
 ---
 
-*文档版本：V1.0 | 2026-06-23 | 胡宪棋*
+*文档版本：V1.0 | 2026-06-25 | 胡宪棋（前端未变更，后端同步至V2.0）*

@@ -3,6 +3,8 @@ package com.finance.controller.admin;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.finance.annotation.AdminLog;
+import com.finance.annotation.RequireSuperAdmin;
+import com.finance.annotation.SensitiveRead;
 import com.finance.entity.Bill;
 import com.finance.entity.SysUser;
 import com.finance.mapper.BillMapper;
@@ -21,7 +23,7 @@ import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
-@Tag(name = "管理员-账单管理", description = "全平台账单管理、统计、导出")
+@Tag(name = "管理员-账单管理", description = "全平台账单管理、统计、导出（读+导出对运营开放，改/删仅超管）")
 @RestController
 @RequestMapping("/api/admin/bill")
 @RequiredArgsConstructor
@@ -44,12 +46,31 @@ public class AdminBillController {
             @RequestParam(required = false) BigDecimal minAmount,
             @RequestParam(required = false) BigDecimal maxAmount) {
         LambdaQueryWrapper<Bill> wrapper = new LambdaQueryWrapper<>();
-        if (userId != null) wrapper.eq(Bill::getUserId, userId);
-        if (type != null) wrapper.eq(Bill::getType, type);
-        if (startDate != null) wrapper.ge(Bill::getConsumeTime, startDate + " 00:00:00");
-        if (endDate != null) wrapper.le(Bill::getConsumeTime, endDate + " 23:59:59");
-        if (minAmount != null) wrapper.ge(Bill::getAmount, minAmount);
-        if (maxAmount != null) wrapper.le(Bill::getAmount, maxAmount);
+        if (userId != null)
+            wrapper.eq(Bill::getUserId, userId);
+        // 用户名模糊查询：查用户表获取匹配的userId列表
+        if (username != null && !username.isEmpty()) {
+            List<Long> userIds = sysUserService.lambdaQuery()
+                    .like(SysUser::getUsername, username)
+                    .list()
+                    .stream()
+                    .map(SysUser::getId)
+                    .toList();
+            if (userIds.isEmpty()) {
+                return Result.ok(Map.of("records", List.of(), "total", 0L));
+            }
+            wrapper.in(Bill::getUserId, userIds);
+        }
+        if (type != null)
+            wrapper.eq(Bill::getType, type);
+        if (startDate != null)
+            wrapper.ge(Bill::getConsumeTime, startDate + " 00:00:00");
+        if (endDate != null)
+            wrapper.le(Bill::getConsumeTime, endDate + " 23:59:59");
+        if (minAmount != null)
+            wrapper.ge(Bill::getAmount, minAmount);
+        if (maxAmount != null)
+            wrapper.le(Bill::getAmount, maxAmount);
         wrapper.orderByDesc(Bill::getConsumeTime);
 
         Page<Bill> pageResult = billService.page(new Page<>(page, size), wrapper);
@@ -58,7 +79,6 @@ public class AdminBillController {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id", b.getId());
             m.put("userId", b.getUserId());
-            // lazy-load username
             SysUser u = sysUserService.getById(b.getUserId());
             m.put("username", u != null ? u.getUsername() : "未知");
             m.put("amount", b.getAmount());
@@ -80,16 +100,18 @@ public class AdminBillController {
         return Result.ok(data);
     }
 
-    @Operation(summary = "管理员编辑账单")
+    @Operation(summary = "管理员编辑账单（仅超管）")
     @PutMapping("/{id}")
+    @RequireSuperAdmin
     @AdminLog("管理端编辑账单")
     public Result<Map<String, Object>> update(@PathVariable Long id, @RequestBody Bill bill) {
         Bill updated = billService.updateBill(id, bill, null, true);
         return Result.ok("已修改", billService.getBillDetail(updated.getId(), bill.getUserId()));
     }
 
-    @Operation(summary = "管理员删除账单")
+    @Operation(summary = "管理员删除账单（仅超管）")
     @DeleteMapping("/{id}")
+    @RequireSuperAdmin
     @AdminLog("管理端删除账单")
     public Result<Void> delete(@PathVariable Long id) {
         billService.adminDeleteBill(id);
@@ -110,35 +132,86 @@ public class AdminBillController {
 
     @Operation(summary = "全量导出账单Excel")
     @GetMapping("/export-all")
+    @SensitiveRead("导出全平台账单")
     public void exportAll(
             @RequestParam(required = false) String type,
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate,
             HttpServletResponse response) throws IOException {
+        // 流式分批写出（每次 5000 行），避免一次性加载全表导致 OOM
         LambdaQueryWrapper<Bill> wrapper = new LambdaQueryWrapper<>();
-        if (type != null) wrapper.eq(Bill::getType, type);
-        if (startDate != null) wrapper.ge(Bill::getConsumeTime, startDate + " 00:00:00");
-        if (endDate != null) wrapper.le(Bill::getConsumeTime, endDate + " 23:59:59");
+        if (type != null)
+            wrapper.eq(Bill::getType, type);
+        if (startDate != null)
+            wrapper.ge(Bill::getConsumeTime, startDate + " 00:00:00");
+        if (endDate != null)
+            wrapper.le(Bill::getConsumeTime, endDate + " 23:59:59");
         wrapper.orderByDesc(Bill::getConsumeTime);
-        List<Bill> bills = billService.list(wrapper);
+        wrapper.select(Bill::getId, Bill::getUserId, Bill::getAmount, Bill::getType,
+                Bill::getCategoryId, Bill::getRemark, Bill::getConsumeTime, Bill::getCreatedAt,
+                Bill::getReceiptImage);
 
-        String[] headers = {"序号","账单ID","用户ID","金额","类型","分类ID","备注", "消费时间","是否有小票"};
-        List<Map<String, Object>> dataList = new ArrayList<>();
-        int idx = 1;
-        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-        for (Bill b : bills) {
-            Map<String, Object> row = new LinkedHashMap<>();
-            row.put("col0", idx++);
-            row.put("col1", b.getId());
-            row.put("col2", b.getUserId());
-            row.put("col3", b.getAmount());
-            row.put("col4", b.getType());
-            row.put("col5", b.getCategoryId());
-            row.put("col6", b.getRemark());
-            row.put("col7", b.getConsumeTime() != null ? b.getConsumeTime().format(fmt) : "");
-            row.put("col8", b.getReceiptImage() != null ? "是" : "否");
-            dataList.add(row);
+        // 设置响应头（必须在创建 Workbook 之前）
+        String timestamp = java.time.LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        String fullFileName = "全平台账单导出_" + timestamp + ".xlsx";
+        String encodedFileName = java.net.URLEncoder.encode(fullFileName, java.nio.charset.StandardCharsets.UTF_8)
+                .replace("+", "%20");
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''" + encodedFileName);
+        response.setCharacterEncoding("UTF-8");
+
+        try (org.apache.poi.xssf.streaming.SXSSFWorkbook workbook = new org.apache.poi.xssf.streaming.SXSSFWorkbook(
+                5000);
+                java.io.OutputStream os = response.getOutputStream()) {
+
+            org.apache.poi.ss.usermodel.Sheet sheet = workbook.createSheet("账单");
+            org.apache.poi.ss.usermodel.CellStyle headerStyle = workbook.createCellStyle();
+            org.apache.poi.ss.usermodel.Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerStyle.setFont(headerFont);
+
+            String[] headers = { "序号", "账单ID", "用户ID", "金额", "类型", "分类ID", "备注", "消费时间", "是否有小票" };
+            org.apache.poi.ss.usermodel.Row headerRow = sheet.createRow(0);
+            for (int i = 0; i < headers.length; i++) {
+                org.apache.poi.ss.usermodel.Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            int batchSize = 5000;
+            long lastId = Long.MAX_VALUE;
+            int rowIdx = 1;
+            int seq = 1;
+
+            while (true) {
+                // 用 ID 倒序分批查
+                LambdaQueryWrapper<Bill> pageWrapper = wrapper.clone()
+                        .lt(Bill::getId, lastId)
+                        .last("LIMIT " + batchSize);
+                List<Bill> batch = billService.list(pageWrapper);
+                if (batch.isEmpty())
+                    break;
+
+                for (Bill b : batch) {
+                    org.apache.poi.ss.usermodel.Row row = sheet.createRow(rowIdx++);
+                    row.createCell(0).setCellValue(seq++);
+                    row.createCell(1).setCellValue(b.getId());
+                    row.createCell(2).setCellValue(b.getUserId());
+                    row.createCell(3).setCellValue(b.getAmount() != null ? b.getAmount().toPlainString() : "");
+                    row.createCell(4).setCellValue(b.getType());
+                    row.createCell(5).setCellValue(b.getCategoryId());
+                    row.createCell(6).setCellValue(b.getRemark());
+                    row.createCell(7).setCellValue(b.getConsumeTime() != null ? b.getConsumeTime().format(fmt) : "");
+                    row.createCell(8).setCellValue(b.getReceiptImage() != null ? "是" : "否");
+                }
+                lastId = batch.get(batch.size() - 1).getId();
+                if (batch.size() < batchSize)
+                    break;
+            }
+
+            workbook.write(os);
+            os.flush();
         }
-        ExcelUtil.exportToResponse(response, "全平台账单导出", "账单", headers, dataList);
     }
 }

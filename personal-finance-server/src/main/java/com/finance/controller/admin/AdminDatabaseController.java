@@ -2,6 +2,8 @@ package com.finance.controller.admin;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.finance.annotation.AdminLog;
+import com.finance.annotation.RequireSuperAdmin;
+import com.finance.annotation.SensitiveRead;
 import com.finance.entity.DatabaseBackupLog;
 import com.finance.interceptor.AdminJwtInterceptor;
 import com.finance.service.DatabaseBackupLogService;
@@ -21,7 +23,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Slf4j
-@Tag(name = "管理员-数据库运维", description = "数据库备份、备份历史")
+@Tag(name = "管理员-数据库运维", description = "数据库备份、备份历史（仅超管）")
 @RestController
 @RequestMapping("/api/admin/database")
 @RequiredArgsConstructor
@@ -36,8 +38,9 @@ public class AdminDatabaseController {
     @Value("${spring.datasource.password}")
     private String dbPassword;
 
-    @Operation(summary = "执行数据库备份")
+    @Operation(summary = "执行数据库备份（仅超管）")
     @PostMapping("/backup")
+    @RequireSuperAdmin
     @AdminLog("执行数据库备份")
     public Result<Map<String, Object>> backup(HttpServletRequest request) {
         Long adminId = (Long) request.getAttribute(AdminJwtInterceptor.ADMIN_ID_ATTR);
@@ -49,16 +52,14 @@ public class AdminDatabaseController {
         try {
             FileUtil.createDirs(backupDir);
 
-            // 提取数据库名
+            // 关键修复：用正则从 jdbc URL 里精确提取数据库名
             String dbName = "finance_db";
-            if (datasourceUrl.contains("/")) {
-                String[] parts = datasourceUrl.split("/");
-                String last = parts[parts.length - 1];
-                if (last.contains("?")) last = last.substring(0, last.indexOf("?"));
-                dbName = last;
+            java.util.regex.Pattern p = java.util.regex.Pattern.compile("jdbc:[^/]+://[^/]+/([^?]+)");
+            java.util.regex.Matcher m = p.matcher(datasourceUrl);
+            if (m.find()) {
+                dbName = m.group(1);
             }
 
-            // 执行mysqldump
             ProcessBuilder pb = new ProcessBuilder(
                     "mysqldump",
                     "-u" + dbUsername,
@@ -89,7 +90,6 @@ public class AdminDatabaseController {
             return Result.ok("数据库备份成功", data);
         } catch (Exception e) {
             log.error("数据库备份失败: ", e);
-            // 记录失败日志
             DatabaseBackupLog logEntry = new DatabaseBackupLog();
             logEntry.setAdminId(adminId);
             logEntry.setFileName(fileName);
@@ -102,8 +102,10 @@ public class AdminDatabaseController {
         }
     }
 
-    @Operation(summary = "备份历史查询")
+    @Operation(summary = "备份历史查询（仅超管）")
     @GetMapping("/backup/log")
+    @RequireSuperAdmin
+    @SensitiveRead("查看备份历史")
     public Result<Map<String, Object>> backupLog(
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "20") Integer size) {

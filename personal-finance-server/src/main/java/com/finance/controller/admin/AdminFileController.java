@@ -1,19 +1,23 @@
 package com.finance.controller.admin;
 
 import com.finance.annotation.AdminLog;
+import com.finance.annotation.RequireSuperAdmin;
+import com.finance.annotation.SensitiveRead;
 import com.finance.config.FileUploadConfig;
 import com.finance.utils.FileUtil;
 import com.finance.utils.Result;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.File;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-@Tag(name = "管理员-文件管理", description = "文件概览、清理无效文件")
+@Slf4j
+@Tag(name = "管理员-文件管理", description = "文件概览、清理无效文件（清理仅超管）")
 @RestController
 @RequestMapping("/api/admin/file")
 @RequiredArgsConstructor
@@ -23,8 +27,15 @@ public class AdminFileController {
 
     @Operation(summary = "文件存储概览")
     @GetMapping("/overview")
+    @SensitiveRead("查看文件概览")
     public Result<Map<String, Object>> overview() {
-        String dirPath = fileUploadConfig.getReceiptPath();
+        String dirPath = fileUploadConfig.getBackupPath();
+        try {
+            FileUtil.createDirs(dirPath);
+        } catch (java.io.IOException e) {
+            log.error("创建备份目录失败: {}", dirPath, e);
+            return Result.fail(60005, "无法创建存储目录: " + e.getMessage());
+        }
         File[] files = FileUtil.listFiles(dirPath);
         long totalFiles = files != null ? files.length : 0;
         long totalSize = FileUtil.getDirSize(dirPath);
@@ -37,20 +48,25 @@ public class AdminFileController {
         return Result.ok(data);
     }
 
-    @Operation(summary = "清理无效文件")
+    @Operation(summary = "清理无效文件（仅超管）")
     @DeleteMapping("/clean")
+    @RequireSuperAdmin
     @AdminLog("清理无效文件")
     public Result<Map<String, Object>> clean() {
-        // 简化版：统计并清理uploads目录下所有文件
-        String dirPath = fileUploadConfig.getReceiptPath();
+        String dirPath = fileUploadConfig.getBackupPath();
+        try {
+            FileUtil.createDirs(dirPath);
+        } catch (java.io.IOException e) {
+            log.error("创建备份目录失败: {}", dirPath, e);
+            return Result.fail(60005, "无法创建存储目录: " + e.getMessage());
+        }
         File[] files = FileUtil.listFiles(dirPath);
         long deletedCount = 0;
         long freedBytes = 0;
         if (files != null) {
             for (File f : files) {
                 freedBytes += f.length();
-                f.delete();
-                deletedCount++;
+                if (f.delete()) deletedCount++;
             }
         }
         Map<String, Object> data = new LinkedHashMap<>();

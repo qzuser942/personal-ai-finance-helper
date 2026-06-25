@@ -12,9 +12,13 @@ import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
 import App from './App.vue'
 import router from './router'
 import pinia from './store'
+import permissionDirective from './directives/permission'
 import './assets/styles/global.scss'
 
 const app = createApp(App)
+
+// 关键修复：注册 v-permission 指令，所有按钮统一从后端 /api/admin/info 拉权限位渲染
+app.use(permissionDirective)
 
 // 注册Element Plus图标
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
